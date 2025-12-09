@@ -105,10 +105,16 @@ describe("elysiaPlugin", () => {
     const { server, watchers, middlewares, apiFile } = createDevServerMocks();
 
     const apiV1: ApiHandler = {
-      handle: mock(async () => new Response("v1", { status: 201, headers: { "x-api": "v1", "content-type": "text/plain;charset=UTF-8" } })),
+      handle: mock(
+        async () =>
+          new Response("v1", { status: 201, headers: { "x-api": "v1", "content-type": "text/plain;charset=UTF-8" } })
+      ),
     };
     const apiV2: ApiHandler = {
-      handle: mock(async () => new Response("v2", { status: 202, headers: { "x-api": "v2", "content-type": "text/plain;charset=UTF-8" } })),
+      handle: mock(
+        async () =>
+          new Response("v2", { status: 202, headers: { "x-api": "v2", "content-type": "text/plain;charset=UTF-8" } })
+      ),
     };
 
     server.ssrLoadModule.mockResolvedValueOnce({ api: apiV1 }).mockResolvedValueOnce({ api: apiV2 });
