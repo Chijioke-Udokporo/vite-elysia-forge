@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import Pino from "pino";
-import type { Plugin } from "vite";
+import type { Plugin, ModuleNode } from "vite";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -39,14 +39,35 @@ function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions): Plugin 
 
       server.watcher.add(apiFile);
       server.watcher.on("change", async (file) => {
-        if (file !== apiFile) return;
+        const entryMod = await server.moduleGraph.getModuleByUrl(apiModulePath);
+        if (!entryMod) return;
 
-        try {
-          const mod = await server.moduleGraph.getModuleByUrl(apiModulePath);
-          if (mod) {
-            server.moduleGraph.invalidateModule(mod);
+        const changedMods = server.moduleGraph.getModulesByFile(file);
+        if (!changedMods || changedMods.size === 0) return;
+
+        let isDependency = false;
+        const seen = new Set<string>();
+        const queue = [...changedMods];
+
+        while (queue.length > 0) {
+          const node = queue.shift();
+          if (!node || !node.id || seen.has(node.id)) continue;
+          seen.add(node.id);
+
+          if (node.id === entryMod.id) {
+            isDependency = true;
+            break;
           }
 
+          for (const importer of node.importers) {
+            queue.push(importer);
+          }
+        }
+
+        if (!isDependency) return;
+
+        try {
+          server.moduleGraph.invalidateModule(entryMod);
           api = await loadApi();
           logger.info("Reloaded Elysia API module");
         } catch (error) {

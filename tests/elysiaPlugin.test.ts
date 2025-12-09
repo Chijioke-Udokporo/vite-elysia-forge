@@ -29,6 +29,7 @@ function createDevServerMocks(root = "/tmp/app") {
 
   const moduleGraph = {
     getModuleByUrl: mock(),
+    getModulesByFile: mock(),
     invalidateModule: mock(),
   };
 
@@ -120,7 +121,9 @@ describe("elysiaPlugin", () => {
 
     server.ssrLoadModule.mockResolvedValueOnce({ api: apiV1 }).mockResolvedValueOnce({ api: apiV2 });
 
-    server.moduleGraph.getModuleByUrl.mockResolvedValue({ id: "api-module" });
+    const entryModule = { id: "api-module", importers: new Set() };
+    server.moduleGraph.getModuleByUrl.mockResolvedValue(entryModule);
+    server.moduleGraph.getModulesByFile.mockReturnValue(new Set([entryModule]));
 
     const plugin = elysiaPlugin({ serverFile: "/server/api.ts" });
     const configureServer = plugin.configureServer as typeof plugin.configureServer & ((server: any) => Promise<void>);
