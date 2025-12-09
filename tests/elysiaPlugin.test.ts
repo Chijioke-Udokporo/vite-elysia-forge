@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 import { elysiaPlugin } from "../src/index";
 
 type ApiHandler = { handle: (request: Request) => Promise<Response> };
@@ -13,7 +13,7 @@ type Middleware = (
     setHeader: (key: string, value: string) => void;
     end: (body?: string) => void;
   },
-  next: () => void,
+  next: () => void
 ) => Promise<void> | void;
 
 function createDevServerMocks(root = "/tmp/app") {
@@ -21,18 +21,18 @@ function createDevServerMocks(root = "/tmp/app") {
   const middlewares: Middleware[] = [];
 
   const watcher = {
-    add: vi.fn(),
-    on: vi.fn((event: string, cb: (file: string) => Promise<void> | void) => {
+    add: mock(),
+    on: mock((event: string, cb: (file: string) => Promise<void> | void) => {
       watchers[event] = cb;
     }),
   };
 
   const moduleGraph = {
-    getModuleByUrl: vi.fn(),
-    invalidateModule: vi.fn(),
+    getModuleByUrl: mock(),
+    invalidateModule: mock(),
   };
 
-  const ssrLoadModule = vi.fn();
+  const ssrLoadModule = mock();
 
   const server = {
     config: { root },
@@ -40,7 +40,7 @@ function createDevServerMocks(root = "/tmp/app") {
     moduleGraph,
     ssrLoadModule,
     middlewares: {
-      use: vi.fn((mw: Middleware) => {
+      use: mock((mw: Middleware) => {
         middlewares.push(mw);
       }),
     },
@@ -60,7 +60,7 @@ async function runMiddleware(mw: Middleware, url: string) {
       res.body = body;
     },
   };
-  const next = vi.fn();
+  const next = mock();
   const req: any = { url, method: "GET", headers: { host: "example.test" } };
 
   await mw(req, res, next);
@@ -78,7 +78,7 @@ describe("elysiaPlugin", () => {
     const { server, watchers, middlewares, apiFile } = createDevServerMocks();
 
     const api: ApiHandler = {
-      handle: vi.fn(async () => new Response("ok", { status: 200 })),
+      handle: mock(async () => new Response("ok", { status: 200 })),
     };
 
     server.ssrLoadModule.mockResolvedValue({ api });
@@ -105,15 +105,13 @@ describe("elysiaPlugin", () => {
     const { server, watchers, middlewares, apiFile } = createDevServerMocks();
 
     const apiV1: ApiHandler = {
-      handle: vi.fn(async () => new Response("v1", { status: 201, headers: { "x-api": "v1" } })),
+      handle: mock(async () => new Response("v1", { status: 201, headers: { "x-api": "v1", "content-type": "text/plain;charset=UTF-8" } })),
     };
     const apiV2: ApiHandler = {
-      handle: vi.fn(async () => new Response("v2", { status: 202, headers: { "x-api": "v2" } })),
+      handle: mock(async () => new Response("v2", { status: 202, headers: { "x-api": "v2", "content-type": "text/plain;charset=UTF-8" } })),
     };
 
-    server.ssrLoadModule
-      .mockResolvedValueOnce({ api: apiV1 })
-      .mockResolvedValueOnce({ api: apiV2 });
+    server.ssrLoadModule.mockResolvedValueOnce({ api: apiV1 }).mockResolvedValueOnce({ api: apiV2 });
 
     server.moduleGraph.getModuleByUrl.mockResolvedValue({ id: "api-module" });
 
@@ -164,7 +162,7 @@ describe("elysiaPlugin", () => {
     const { server, middlewares } = createDevServerMocks();
 
     const api: ApiHandler = {
-      handle: vi.fn(async () => new Response("ok", { status: 200 })),
+      handle: mock(async () => new Response("ok", { status: 200 })),
     };
 
     server.ssrLoadModule.mockResolvedValue({ api });
@@ -173,12 +171,12 @@ describe("elysiaPlugin", () => {
     await plugin.configureServer(server as any);
 
     const middleware = middlewares[0];
-    const next = vi.fn();
+    const next = mock();
 
     const res: any = {
       statusCode: 0,
-      setHeader: vi.fn(),
-      end: vi.fn(),
+      setHeader: mock(),
+      end: mock(),
     };
 
     const req: any = { url: "/not-api", method: "GET", headers: {} };
