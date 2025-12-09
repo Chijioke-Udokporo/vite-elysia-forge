@@ -1,6 +1,6 @@
 {
   "name": "@codesordinate/vite-elysia-forge",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "license": "MIT",
   "exports": "./mod.ts",
   "description": "A Vite plugin to seamlessly integrate ElysiaJS for full-stack development."
