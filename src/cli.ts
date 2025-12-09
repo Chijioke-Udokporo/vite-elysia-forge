@@ -37,7 +37,7 @@ export async function build(apiEntry: string = "src/server/api.ts") {
   if (!relativeApiEntry.startsWith(".")) relativeApiEntry = "./" + relativeApiEntry;
 
   const tempContent = `
-import { startServer } from "@chijioke-udokporo/vite-elysia-forge/production";
+import { startServer } from "vite-elysia-forge/production";
 import { api } from "${relativeApiEntry}";
 
 startServer({

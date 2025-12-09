@@ -62,7 +62,7 @@ describe("CLI build", () => {
     const writeArgs = writeFileSyncMock.mock.calls[0] as any[];
     expect(writeArgs[0]).toContain(".output");
     expect(writeArgs[0]).toContain(".temp-prod.ts");
-    expect(writeArgs[1]).toContain('import { startServer } from "@chijioke-udokporo/vite-elysia-forge/production"');
+    expect(writeArgs[1]).toContain('import { startServer } from "vite-elysia-forge/production"');
 
     // Verify Bun.build uses the temp file
     expect(bunBuildMock).toHaveBeenCalled();
