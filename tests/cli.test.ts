@@ -41,6 +41,8 @@ describe("CLI build", () => {
 
   it("runs vite build and bun build successfully", async () => {
     spyOn(fs, "existsSync").mockReturnValue(true);
+    const writeFileSyncMock = spyOn(fs, "writeFileSync").mockImplementation(() => {});
+    const unlinkSyncMock = spyOn(fs, "unlinkSync").mockImplementation(() => {});
 
     const spawnSyncMock = mock(() => ({ status: 0 }) as any);
     spyOn(child_process, "spawnSync").mockImplementation(spawnSyncMock);
@@ -48,14 +50,28 @@ describe("CLI build", () => {
     const bunBuildMock = mock(async () => ({ success: true, logs: [] }) as any);
     Bun.build = bunBuildMock;
 
-    await build("prod.ts");
+    await build("src/server/api.ts");
 
     expect(spawnSyncMock).toHaveBeenCalled();
     const args = (spawnSyncMock.mock.calls[0] as any)[1];
     expect(args).toContain("vite");
     expect(args).toContain("build");
 
+    // Verify temp file creation
+    expect(writeFileSyncMock).toHaveBeenCalled();
+    const writeArgs = writeFileSyncMock.mock.calls[0] as any[];
+    expect(writeArgs[0]).toContain(".temp-prod.ts");
+    expect(writeArgs[1]).toContain('import { startServer } from "vite-elysia-forge/production"');
+
+    // Verify Bun.build uses the temp file
     expect(bunBuildMock).toHaveBeenCalled();
+    const buildOptions = (bunBuildMock.mock.calls[0] as any)[0];
+    expect(buildOptions.entrypoints[0]).toContain(".temp-prod.ts");
+
+    // Verify temp file cleanup
+    expect(unlinkSyncMock).toHaveBeenCalled();
+    expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".temp-prod.ts");
+
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("Build complete"));
   });
 
@@ -66,7 +82,7 @@ describe("CLI build", () => {
     spyOn(child_process, "spawnSync").mockImplementation(spawnSyncMock);
 
     try {
-      await build("prod.ts");
+      await build("src/server/api.ts");
     } catch (e: any) {
       expect(e.message).toBe("Process exited with code 1");
     }
@@ -76,6 +92,8 @@ describe("CLI build", () => {
 
   it("fails if bun build fails", async () => {
     spyOn(fs, "existsSync").mockReturnValue(true);
+    spyOn(fs, "writeFileSync").mockImplementation(() => {});
+    const unlinkSyncMock = spyOn(fs, "unlinkSync").mockImplementation(() => {});
 
     const spawnSyncMock = mock(() => ({ status: 0 }) as any);
     spyOn(child_process, "spawnSync").mockImplementation(spawnSyncMock);
@@ -84,11 +102,15 @@ describe("CLI build", () => {
     Bun.build = bunBuildMock;
 
     try {
-      await build("prod.ts");
+      await build("src/server/api.ts");
     } catch (e: any) {
       expect(e.message).toBe("Process exited with code 1");
     }
 
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining("Server build failed"));
+
+    // Verify cleanup happens even on failure
+    expect(unlinkSyncMock).toHaveBeenCalled();
+    expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".temp-prod.ts");
   });
 });

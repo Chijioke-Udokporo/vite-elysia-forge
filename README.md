@@ -91,31 +91,18 @@ export default api;
 
 When building for production, you need to build both the Vite frontend and the Elysia backend. This package provides a CLI to handle this for you.
 
-1. Create a production entry file (e.g., `prod.ts`):
-
-```ts
-import { startServer } from "vite-elysia-forge/production";
-import { api } from "./src/server/api"; // Import your API
-
-startServer({
-  api,
-  port: 3000, // optional
-  distDir: "dist", // optional
-});
-```
-
-2. Update your `package.json` build script:
+1. Update your `package.json` build script:
 
 ```json
 {
   "scripts": {
-    "build": "vite-elysia-forge build prod.ts",
+    "build": "vite-elysia-forge build",
     "start": "bun dist/server.js"
   }
 }
 ```
 
-3. Run the build:
+2. Run the build:
 
 ```bash
 bun run build
@@ -124,7 +111,14 @@ bun run build
 This will:
 
 1. Run `vite build` to compile your frontend to `dist/`.
-2. Bundle your `prod.ts` (and your API) into a single file at `dist/server.js`.
+2. Automatically generate a temporary entry file that imports your API from `src/server/api.ts` (default).
+3. Bundle the server into a single file at `dist/server.js`.
+
+If your API is located elsewhere, you can specify the path:
+
+```bash
+vite-elysia-forge build src/my-api.ts
+```
 
 3. Start the server:
 
