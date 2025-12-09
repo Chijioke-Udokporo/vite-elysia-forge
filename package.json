@@ -1,6 +1,7 @@
 {
   "name": "@chijioke-udokporo/vite-elysia-forge",
   "version": "0.0.8",
+  "description": "A Vite plugin to seamlessly integrate ElysiaJS for full-stack development.",
   "type": "module",
   "engines": {
     "node": ">=18.0.0",
