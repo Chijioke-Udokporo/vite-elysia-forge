@@ -1,6 +1,6 @@
 {
   "name": "@chijioke-udokporo/vite-elysia-forge",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.cjs",
@@ -15,8 +15,7 @@
   "author": "chijioke-udokporo",
   "private": false,
   "scripts": {
-    "build": "bun run test && tsup",
-    "test": "bun test"
+    "build": "bun run test && tsup"
   },
   "dependencies": {
     "pino": "^10.1.0",

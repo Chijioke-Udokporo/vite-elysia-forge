@@ -1,13 +1,16 @@
 #!/usr/bin/env bun
 import { spawnSync } from "node:child_process";
-import { existsSync, writeFileSync, unlinkSync } from "node:fs";
-import { resolve, relative } from "node:path";
+import { existsSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { resolve, relative, sep } from "node:path";
 
 export async function build(apiEntry: string = "src/server/api.ts") {
   const absoluteApiEntry = resolve(process.cwd(), apiEntry);
 
   if (!existsSync(absoluteApiEntry)) {
     console.error(`❌ API entry file "${apiEntry}" not found.`);
+    console.error(`   By default, vite-elysia-forge looks for "src/server/api.ts".`);
+    console.error(`   If your API is located elsewhere, please specify the path:`);
+    console.error(`   $ vite-elysia-forge build <path-to-your-api-file>`);
     process.exit(1);
   }
 
@@ -26,11 +29,22 @@ export async function build(apiEntry: string = "src/server/api.ts") {
   console.log("🥟 Building Elysia server for Bun...");
 
   // Create a temporary entry file
-  const tempEntry = resolve(process.cwd(), ".temp-prod.ts");
-  const relativeApiEntry = "./" + relative(process.cwd(), absoluteApiEntry);
+  const distDir = resolve(process.cwd(), "dist");
+  if (!existsSync(distDir)) {
+    mkdirSync(distDir, { recursive: true });
+  }
+  const tempEntry = resolve(distDir, ".temp-prod.ts");
+
+  // Calculate relative path from dist to api entry
+  let relativeApiEntry = relative(distDir, absoluteApiEntry);
+  // Normalize path separators for imports (Windows support)
+  relativeApiEntry = relativeApiEntry.split(sep).join("/");
+  if (!relativeApiEntry.startsWith(".")) {
+    relativeApiEntry = "./" + relativeApiEntry;
+  }
 
   const tempContent = `
-import { startServer } from "vite-elysia-forge/production";
+import { startServer } from "@chijioke-udokporo/vite-elysia-forge/production";
 import { api } from "${relativeApiEntry}";
 
 startServer({
