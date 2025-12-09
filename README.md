@@ -89,7 +89,7 @@ export default api;
 
 ## Production Usage
 
-When building for production, Vite will output your frontend to `dist`. You can use the included production server utility to serve your static files and API.
+When building for production, you need to build both the Vite frontend and the Elysia backend. This package provides a CLI to handle this for you.
 
 1. Create a production entry file (e.g., `prod.ts`):
 
@@ -104,10 +104,32 @@ startServer({
 });
 ```
 
-2. Run it with Bun:
+2. Update your `package.json` build script:
+
+```json
+{
+  "scripts": {
+    "build": "vite-elysia-forge build prod.ts",
+    "start": "bun dist/server.js"
+  }
+}
+```
+
+3. Run the build:
 
 ```bash
-bun run prod.ts
+bun run build
+```
+
+This will:
+
+1. Run `vite build` to compile your frontend to `dist/`.
+2. Bundle your `prod.ts` (and your API) into a single file at `dist/server.js`.
+
+3. Start the server:
+
+```bash
+bun start
 ```
 
 ## Authors

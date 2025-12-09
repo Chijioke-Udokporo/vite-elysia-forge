@@ -1,6 +1,6 @@
 {
   "name": "@chijioke-udokporo/vite-elysia-forge",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.cjs",
@@ -29,6 +29,9 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "bin": {
+    "vite-elysia-forge": "./dist/cli.js"
   },
   "exports": {
     ".": {
