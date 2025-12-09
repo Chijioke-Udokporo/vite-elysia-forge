@@ -46,9 +46,7 @@ export const startServer = (options: ProductionOptions): void => {
   const apiPrefix = options.apiPrefix || "/api";
   const api = options.api;
 
-  if (typeof Bun === "undefined") {
-    throw new Error("This production server utility requires Bun.");
-  }
+  if (typeof Bun === "undefined") throw new Error("This production server utility requires Bun.");
 
   Bun.serve({
     port,
@@ -67,16 +65,9 @@ export const startServer = (options: ProductionOptions): void => {
       const filePath = join(dist, path.startsWith("/") ? path.slice(1) : path);
       const file = Bun.file(filePath);
 
-      if (await file.exists()) {
-        return new Response(file);
-      }
-
-      // 3. SPA Fallback
-      if (req.method === "GET") {
-        return new Response(Bun.file(indexHtml));
-      }
-
-      return new Response("Not Found", { status: 404 });
+      if (await file.exists()) return new Response(file); // Serve the static file
+      if (req.method === "GET") return new Response(Bun.file(indexHtml)); // 3. SPA Fallback
+      return new Response("Not Found", { status: 404 }); // 4. 404 for other methods
     },
   });
 

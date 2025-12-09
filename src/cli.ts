@@ -14,7 +14,6 @@ export async function build(apiEntry: string = "src/server/api.ts") {
     process.exit(1);
   }
 
-  console.log("📦 Building Vite app...");
   // Run vite build
   const viteBuild = spawnSync("bun", ["x", "vite", "build"], {
     stdio: "inherit",
@@ -26,22 +25,16 @@ export async function build(apiEntry: string = "src/server/api.ts") {
     process.exit(viteBuild.status || 1);
   }
 
-  console.log("🥟 Building Elysia server for Bun...");
-
   // Create a temporary entry file
   const outputDir = resolve(process.cwd(), ".output");
-  if (!existsSync(outputDir)) {
-    mkdirSync(outputDir, { recursive: true });
-  }
+  if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
   const tempEntry = resolve(outputDir, ".temp-prod.ts");
 
   // Calculate relative path from outputDir to api entry
   let relativeApiEntry = relative(outputDir, absoluteApiEntry);
   // Normalize path separators for imports (Windows support)
   relativeApiEntry = relativeApiEntry.split(sep).join("/");
-  if (!relativeApiEntry.startsWith(".")) {
-    relativeApiEntry = "./" + relativeApiEntry;
-  }
+  if (!relativeApiEntry.startsWith(".")) relativeApiEntry = "./" + relativeApiEntry;
 
   const tempContent = `
 import { startServer } from "@chijioke-udokporo/vite-elysia-forge/production";
@@ -84,10 +77,6 @@ startServer({
       unlinkSync(tempEntry);
     }
   }
-
-  console.log("✅ Build complete!");
-  console.log("   Run your production server with:");
-  console.log("   $ bun dist/server.js");
 }
 
 if (import.meta.main) {
