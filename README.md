@@ -87,6 +87,29 @@ api.get("/", () => "hello from elysia");
 export default api;
 ```
 
+## Production Usage
+
+When building for production, Vite will output your frontend to `dist`. You can use the included production server utility to serve your static files and API.
+
+1. Create a production entry file (e.g., `prod.ts`):
+
+```ts
+import { startServer } from "vite-elysia-forge/production";
+import { api } from "./src/server/api"; // Import your API
+
+startServer({
+  api,
+  port: 3000, // optional
+  distDir: "dist", // optional
+});
+```
+
+2. Run it with Bun:
+
+```bash
+bun run prod.ts
+```
+
 ## Authors
 
 - Chijioke Udokporo ([@chijiokeudokporo](https://github.com/chijioke-udokporo))
