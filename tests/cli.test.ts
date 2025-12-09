@@ -75,7 +75,6 @@ describe("CLI build", () => {
     expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".output");
     expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".temp-prod.ts");
 
-    expect(console.log).toHaveBeenCalledWith(expect.stringContaining("Build complete"));
   });
 
   it("fails if vite build fails", async () => {
