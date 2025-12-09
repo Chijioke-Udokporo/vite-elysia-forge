@@ -115,4 +115,24 @@ describe("CLI build", () => {
     expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".output");
     expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".temp-prod.ts");
   });
+
+  it("cleans up .output directory after build", async () => {
+    spyOn(fs, "existsSync").mockReturnValue(true);
+    spyOn(fs, "writeFileSync").mockImplementation(() => {});
+    spyOn(fs, "unlinkSync").mockImplementation(() => {});
+    const rmSyncMock = spyOn(fs, "rmSync").mockImplementation(() => {});
+
+    const spawnSyncMock = mock(() => ({ status: 0 }) as any);
+    spyOn(child_process, "spawnSync").mockImplementation(spawnSyncMock);
+
+    const bunBuildMock = mock(async () => ({ success: true, logs: [] }) as any);
+    Bun.build = bunBuildMock;
+
+    await build("src/server/api.ts");
+
+    expect(rmSyncMock).toHaveBeenCalled();
+    const rmArgs = rmSyncMock.mock.calls[0] as any[];
+    expect(rmArgs[0]).toContain(".output");
+    expect(rmArgs[1]).toEqual({ recursive: true, force: true });
+  });
 });

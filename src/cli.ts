@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { spawnSync } from "node:child_process";
-import { existsSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { existsSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from "node:fs";
 import { resolve, relative, sep } from "node:path";
 
 export async function build(apiEntry: string = "src/server/api.ts") {
@@ -75,6 +75,9 @@ startServer({
     // Clean up temp file
     if (existsSync(tempEntry)) {
       unlinkSync(tempEntry);
+    }
+    if (existsSync(outputDir)) {
+      rmSync(outputDir, { recursive: true, force: true });
     }
   }
 }
