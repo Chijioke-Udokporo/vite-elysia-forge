@@ -1,18 +1,5 @@
 import { resolve } from "node:path";
-import Pino from "pino";
 import type { Plugin, ModuleNode } from "vite";
-
-const isProduction = process.env.NODE_ENV === "production";
-
-const logger = Pino({
-  name: "vite-elysia-forge",
-  transport: isProduction
-    ? undefined
-    : {
-        target: "pino-pretty",
-        options: { colorize: true },
-      },
-});
 
 /**
  * Configuration options for the Vite Elysia Forge plugin.
@@ -81,9 +68,9 @@ function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions): Plugin 
         try {
           server.moduleGraph.invalidateModule(entryMod);
           api = await loadApi();
-          logger.info("Reloaded Elysia API module");
+          console.log("[vite-elysia-forge] Reloaded Elysia API module");
         } catch (error) {
-          logger.error(`Failed to reload Elysia API: ${error}`);
+          console.error(`[vite-elysia-forge] Failed to reload Elysia API: ${error}`);
         }
       });
 
@@ -128,7 +115,7 @@ function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions): Plugin 
           const responseBody = await response.text();
           res.end(responseBody);
         } catch (error) {
-          logger.error(`Elysia error: ${error}`);
+          console.error(`[vite-elysia-forge] Elysia error: ${error}`);
           res.statusCode = 500;
           res.end("Internal Server Error");
         }
