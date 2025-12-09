@@ -1,14 +1,45 @@
 import { resolve, join } from "node:path";
 
-interface ProductionOptions {
+/**
+ * Options for starting the production server.
+ */
+export interface ProductionOptions {
+  /**
+   * The port to listen on.
+   * @default 3000
+   */
   port?: number;
+  /**
+   * The directory containing the built frontend assets.
+   * @default "dist"
+   */
   distDir?: string;
+  /**
+   * The name of the HTML entry file.
+   * @default "index.html"
+   */
   htmlFile?: string;
+  /**
+   * The prefix for API routes. Requests starting with this prefix will be handled by the Elysia app.
+   * @default "/api"
+   */
   apiPrefix?: string;
+  /**
+   * The Elysia app instance or an object with a `handle` method.
+   */
   api: { handle: (request: Request) => Promise<Response> } | any;
 }
 
-export const startServer = (options: ProductionOptions) => {
+/**
+ * Starts a production server using Bun.serve.
+ *
+ * This function serves the static frontend assets from the distribution directory
+ * and handles API requests using the provided Elysia app instance.
+ *
+ * @param options - Configuration options for the production server.
+ * @throws {Error} If not running in a Bun environment.
+ */
+export const startServer = (options: ProductionOptions): void => {
   const port = options.port || 3000;
   const dist = resolve(process.cwd(), options.distDir || "dist");
   const indexHtml = join(dist, options.htmlFile || "index.html");

@@ -41,13 +41,12 @@ bun install
 
 ```ts
 import { defineConfig } from "vite";
-import { elysiaPlugin } from "vite-elysia-forge";
+import elysiaPlugin from "vite-elysia-forge";
 
 export default defineConfig({
   plugins: [
     elysiaPlugin({
-      serverURL: "/server/",
-      serverFile: "api.ts",
+      serverFile: "/server/api.ts",
     }),
   ],
 });

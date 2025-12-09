@@ -2,6 +2,10 @@
   "name": "@chijioke-udokporo/vite-elysia-forge",
   "version": "0.0.7",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
   "main": "dist/index.cjs",
   "module": "dist/index.cjs",
   "types": "dist/index.d.ts",

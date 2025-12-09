@@ -14,15 +14,27 @@ const logger = Pino({
       },
 });
 
-interface ConfigOptions {
+/**
+ * Configuration options for the Vite Elysia Forge plugin.
+ */
+export interface ConfigOptions {
   /**
    * The URL path to the server API module.
+   * This file should export the Elysia app instance as `api`.
    * @default "/server/api.ts"
    */
-
   serverFile?: string;
 }
 
+/**
+ * A Vite plugin that integrates ElysiaJS into the Vite development server.
+ *
+ * This plugin allows you to run your Elysia backend alongside your frontend code
+ * in the same Vite dev server, enabling seamless full-stack development.
+ *
+ * @param options - Configuration options for the plugin.
+ * @returns A Vite plugin instance.
+ */
 function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions): Plugin {
   return {
     name: "vite-elysia-forge",
