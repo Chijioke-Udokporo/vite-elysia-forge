@@ -3,3 +3,4 @@ tsup.config.ts
 src
 dist
 node_modules
+test
