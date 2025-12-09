@@ -60,16 +60,19 @@ describe("CLI build", () => {
     // Verify temp file creation
     expect(writeFileSyncMock).toHaveBeenCalled();
     const writeArgs = writeFileSyncMock.mock.calls[0] as any[];
+    expect(writeArgs[0]).toContain(".output");
     expect(writeArgs[0]).toContain(".temp-prod.ts");
     expect(writeArgs[1]).toContain('import { startServer } from "@chijioke-udokporo/vite-elysia-forge/production"');
 
     // Verify Bun.build uses the temp file
     expect(bunBuildMock).toHaveBeenCalled();
     const buildOptions = (bunBuildMock.mock.calls[0] as any)[0];
+    expect(buildOptions.entrypoints[0]).toContain(".output");
     expect(buildOptions.entrypoints[0]).toContain(".temp-prod.ts");
 
     // Verify temp file cleanup
     expect(unlinkSyncMock).toHaveBeenCalled();
+    expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".output");
     expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".temp-prod.ts");
 
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("Build complete"));
@@ -111,6 +114,7 @@ describe("CLI build", () => {
 
     // Verify cleanup happens even on failure
     expect(unlinkSyncMock).toHaveBeenCalled();
+    expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".output");
     expect((unlinkSyncMock.mock.calls[0] as any)[0]).toContain(".temp-prod.ts");
   });
 });

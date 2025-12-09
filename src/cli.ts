@@ -29,14 +29,14 @@ export async function build(apiEntry: string = "src/server/api.ts") {
   console.log("🥟 Building Elysia server for Bun...");
 
   // Create a temporary entry file
-  const distDir = resolve(process.cwd(), "dist");
-  if (!existsSync(distDir)) {
-    mkdirSync(distDir, { recursive: true });
+  const outputDir = resolve(process.cwd(), ".output");
+  if (!existsSync(outputDir)) {
+    mkdirSync(outputDir, { recursive: true });
   }
-  const tempEntry = resolve(distDir, ".temp-prod.ts");
+  const tempEntry = resolve(outputDir, ".temp-prod.ts");
 
-  // Calculate relative path from dist to api entry
-  let relativeApiEntry = relative(distDir, absoluteApiEntry);
+  // Calculate relative path from outputDir to api entry
+  let relativeApiEntry = relative(outputDir, absoluteApiEntry);
   // Normalize path separators for imports (Windows support)
   relativeApiEntry = relativeApiEntry.split(sep).join("/");
   if (!relativeApiEntry.startsWith(".")) {
