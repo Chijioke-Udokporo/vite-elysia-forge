@@ -15,18 +15,19 @@ const logger = Pino({
 });
 
 interface ConfigOptions {
-  serverURL?: string;
+  /**
+   * The URL path to the server API module.
+   * @default "/server/api.ts"
+   */
+
   serverFile?: string;
 }
 
-export function elysiaPlugin({
-  serverURL = "/server/",
-  serverFile = "api.ts",
-}: ConfigOptions): Plugin {
+function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions): Plugin {
   return {
     name: "vite-elysia-forge",
     async configureServer(server) {
-      const apiModulePath = `${serverURL}${serverFile}`;
+      const apiModulePath = serverFile;
       const apiFile = resolve(server.config.root, apiModulePath.slice(1));
 
       const loadApi = async () => {
@@ -102,3 +103,5 @@ export function elysiaPlugin({
     },
   };
 }
+
+export default elysiaPlugin;

@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { describe, expect, it, mock } from "bun:test";
-import { elysiaPlugin } from "../src/index";
+import elysiaPlugin from "../src/index";
 
 type ApiHandler = { handle: (request: Request) => Promise<Response> };
 
@@ -83,8 +83,9 @@ describe("elysiaPlugin", () => {
 
     server.ssrLoadModule.mockResolvedValue({ api });
 
-    const plugin = elysiaPlugin({ serverURL: "/server/", serverFile: "api.ts" });
-    await plugin.configureServer(server as any);
+    const plugin = elysiaPlugin({ serverFile: "/server/api.ts" });
+    const configureServer = plugin.configureServer as typeof plugin.configureServer & ((server: any) => Promise<void>);
+    await configureServer(server as any);
 
     expect(server.watcher.add).toHaveBeenCalledWith(apiFile);
     expect(Object.keys(watchers)).toContain("change");
@@ -121,23 +122,29 @@ describe("elysiaPlugin", () => {
 
     server.moduleGraph.getModuleByUrl.mockResolvedValue({ id: "api-module" });
 
-    const plugin = elysiaPlugin({ serverURL: "/server/", serverFile: "api.ts" });
-    await plugin.configureServer(server as any);
+    const plugin = elysiaPlugin({ serverFile: "/server/api.ts" });
+    const configureServer = plugin.configureServer as typeof plugin.configureServer & ((server: any) => Promise<void>);
+    await configureServer(server as any);
 
-    const middleware = middlewares[0];
+    const middleware = middlewares[0]!;
 
     const first = await runMiddleware(middleware, "/api/ping");
-    await watchers.change?.(apiFile);
+    const changeHandler = watchers.change;
+    expect(changeHandler).toBeDefined();
+    await changeHandler?.(apiFile);
     const second = await runMiddleware(middleware, "/api/ping");
 
     expect(server.moduleGraph.invalidateModule).toHaveBeenCalled();
     expect(server.ssrLoadModule).toHaveBeenCalledTimes(2);
 
+    const apiV1HandleMock = apiV1.handle as any;
+    const apiV2HandleMock = apiV2.handle as any;
+
     expect({
       first,
       second,
-      apiV1Calls: apiV1.handle.mock.calls.length,
-      apiV2Calls: apiV2.handle.mock.calls.length,
+      apiV1Calls: apiV1HandleMock.mock.calls.length,
+      apiV2Calls: apiV2HandleMock.mock.calls.length,
     }).toMatchInlineSnapshot(`
       {
         "apiV1Calls": 1,
@@ -173,10 +180,11 @@ describe("elysiaPlugin", () => {
 
     server.ssrLoadModule.mockResolvedValue({ api });
 
-    const plugin = elysiaPlugin({ serverURL: "/server/", serverFile: "api.ts" });
-    await plugin.configureServer(server as any);
+    const plugin = elysiaPlugin({ serverFile: "/server/api.ts" });
+    const configureServer = plugin.configureServer as typeof plugin.configureServer & ((server: any) => Promise<void>);
+    await configureServer(server as any);
 
-    const middleware = middlewares[0];
+    const middleware = middlewares[0]!;
     const next = mock();
 
     const res: any = {

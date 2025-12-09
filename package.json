@@ -1,5 +1,6 @@
 {
   "name": "@chijioke-udokporo/vite-elysia-forge",
+  "version": "0.0.1",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.cjs",
@@ -7,10 +8,14 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chijioke-Udokporo/vite-elysia-forge.git"
+  },
   "author": "chijioke-udokporo",
   "private": false,
   "scripts": {
-    "build": "tsup",
+    "build": "bun run test && tsup",
     "test": "bun test"
   },
   "dependencies": {
