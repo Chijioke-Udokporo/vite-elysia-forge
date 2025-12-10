@@ -68,18 +68,6 @@ elysiaPlugin({
 })
 ```
 
-### 3.2 Using Bun APIs & Caveats
-
-To use Bun-specific APIs (like `Bun.file`, `Bun.env`, `bun:sqlite`) in your server code, you must run Vite using the Bun runtime:
-
-```bash
-bunx --bun vite
-```
-
-**Caveats:**
-- **Node.js Compatibility:** While Bun has excellent Node.js compatibility, some Vite plugins that rely on obscure Node.js internals might behave unexpectedly.
-- **Performance:** Running Vite under Bun is generally faster, but you might encounter edge cases where optimization differs from Node.js.
-
 ## 4. API Module Requirements
 
 Your API module must export an Elysia instance with a `handle(request: Request) => Promise<Response>` method.
@@ -188,6 +176,16 @@ Or update your `dev` script in `package.json`:
   "dev": "bunx --bun vite"
 }
 ```
+
+**Benefits:**
+
+- **Access to Bun APIs:** You can use `Bun.file`, `Bun.env`, `bun:sqlite`, and other native Bun features directly in your server code.
+- **Performance:** Vite often starts faster and uses less memory when running under Bun.
+
+**Caveats:**
+
+- **Node.js Compatibility:** While Bun has excellent Node.js compatibility, some Vite plugins that rely on obscure Node.js internals might behave unexpectedly.
+- **Performance:** Running Vite under Bun is generally faster, but you might encounter edge cases where optimization differs from Node.js.
 
 ### 7.2 Hot Reload Not Working
 
