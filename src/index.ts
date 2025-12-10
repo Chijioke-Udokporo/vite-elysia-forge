@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import type { Plugin, ModuleNode } from "vite";
+import type { Plugin } from "vite";
 
 /**
  * Configuration options for the Vite Elysia Forge plugin.
@@ -22,7 +22,7 @@ export interface ConfigOptions {
  * @param options - Configuration options for the plugin.
  * @returns A Vite plugin instance.
  */
-function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions): Plugin {
+function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions = {}): Plugin {
   return {
     name: "vite-elysia-forge",
     async configureServer(server) {

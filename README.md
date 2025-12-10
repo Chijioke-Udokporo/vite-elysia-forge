@@ -57,11 +57,34 @@ Run Vite as usual and access your API at `/api/*` routes. The plugin will automa
 bun run dev
 ```
 
-## 3. API Module Requirements
+## 3. Configuration Options
+
+### 3.1 Plugin Options
+
+```ts
+elysiaPlugin({
+  // Path to your Elysia API module (relative to project root)
+  serverFile?: string; // default: "/server/api.ts"
+})
+```
+
+### 3.2 Using Bun APIs & Caveats
+
+To use Bun-specific APIs (like `Bun.file`, `Bun.env`, `bun:sqlite`) in your server code, you must run Vite using the Bun runtime:
+
+```bash
+bunx --bun vite
+```
+
+**Caveats:**
+- **Node.js Compatibility:** While Bun has excellent Node.js compatibility, some Vite plugins that rely on obscure Node.js internals might behave unexpectedly.
+- **Performance:** Running Vite under Bun is generally faster, but you might encounter edge cases where optimization differs from Node.js.
+
+## 4. API Module Requirements
 
 Your API module must export an Elysia instance with a `handle(request: Request) => Promise<Response>` method.
 
-### 3.1 Basic Example
+### 4.1 Basic Example
 
 ```ts
 import { Elysia } from "elysia";
@@ -76,7 +99,7 @@ api.get("/users", () => ["user1", "user2"]);
 export default api;
 ```
 
-## 4. Integration with @elysiajs/openapi
+## 5. Integration with @elysiajs/openapi
 
 To use the [@elysiajs/openapi plugin](https://elysiajs.com/patterns/openapi), add the following to your `tsconfig.json`:
 
@@ -89,7 +112,7 @@ To use the [@elysiajs/openapi plugin](https://elysiajs.com/patterns/openapi), ad
 }
 ```
 
-### 4.1 Example with `fromTypes`
+### 5.1 Example with `fromTypes`
 
 It is recommended to pre-generate the declaration file (`.d.ts`) to provide type declaration to the generator.
 
@@ -104,9 +127,9 @@ const app = new Elysia().use(
 );
 ```
 
-## 5. Production Deployment
+## 6. Production Deployment
 
-### 5.1 Build Configuration
+### 6.1 Build Configuration
 
 Update your `package.json` scripts:
 
@@ -126,7 +149,7 @@ If your API is located elsewhere, specify the path:
 vite-elysia-forge build src/my-api.ts
 ```
 
-### 5.2 Building for Production
+### 6.2 Building for Production
 
 Run the build command:
 
@@ -140,7 +163,7 @@ This command performs the following steps:
 2. Automatically generates a temporary entry file that imports your API from `src/server/api.ts`
 3. Bundles the server into a single file at `dist/server.js`
 
-### 5.3 Starting the Production Server
+### 6.3 Starting the Production Server
 
 Start the server with:
 
@@ -148,10 +171,32 @@ Start the server with:
 bun start
 ```
 
-## 6. Authors
+## 7. Troubleshooting
+
+### 7.1 "Bun is not defined" Error
+
+If you encounter this error, ensure you are running Vite with the Bun runtime:
+
+```bash
+bunx --bun vite
+```
+
+Or update your `dev` script in `package.json`:
+
+```json
+"scripts": {
+  "dev": "bunx --bun vite"
+}
+```
+
+### 7.2 Hot Reload Not Working
+
+Check that your file changes are within the dependency graph of your API module. The plugin uses Vite's dependency tracking to determine when to reload.
+
+## 8. Authors
 
 - Chijioke Udokporo ([@chijiokeudokporo](https://github.com/chijioke-udokporo))
 
-## 7. License
+## 9. License
 
 MIT

@@ -13,7 +13,7 @@
   "author": "chijioke-udokporo",
   "private": false,
   "scripts": {
-    "build": "bun run test && tsup",
+    "build": "rm -rf dist &&bun run test && tsup",
     "test": "bun test"
   },
   "dependencies": {},
