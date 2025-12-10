@@ -86,6 +86,19 @@ api.get("/", () => "hello from elysia");
 export default api;
 ```
 
+## Using with @elysiajs/openapi
+
+If you plan to use `@elysiajs/openapi`, you need to add the following to your `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["bun-types"],
+    "typeRoots": ["node_modules"]
+  }
+}
+```
+
 ## Production Usage
 
 When building for production, you need to build both the Vite frontend and the Elysia backend. This package provides a CLI to handle this for you.
