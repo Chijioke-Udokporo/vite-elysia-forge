@@ -68,6 +68,13 @@ export const startServer = (options: ProductionOptions): void => {
     if (path === "/") path = "/index.html";
 
     const filePath = join(dist, path.startsWith("/") ? path.slice(1) : path);
+
+    // Security check: prevent path traversal
+    if (!filePath.startsWith(dist)) {
+      set.status = 403;
+      return "Forbidden";
+    }
+
     const file = Bun.file(filePath);
 
     if (await file.exists()) return file;

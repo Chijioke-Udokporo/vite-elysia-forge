@@ -61,20 +61,24 @@ bun run dev
 
 ### 3.1 Plugin Options
 
+You can configure the plugin by passing an object with the following options:
+
+| Option Key      | Required | Default            | Description                                                            |
+| :-------------- | :------: | :----------------- | :--------------------------------------------------------------------- |
+| `serverFile`    |    No    | `"/server/api.ts"` | Path to your Elysia API module (relative to project root).             |
+| `ws`            |    No    | `false`            | Enable WebSocket support. Runs API as a separate process + Vite proxy. |
+| `apiPrefix`     |    No    | `"/api"`           | Path prefix for API routes. Used for proxying in `ws` mode.            |
+| `backendPort`   |    No    | `3001`             | Port for the backend API server in `ws` mode.                          |
+| `MAX_BODY_SIZE` |    No    | `1048576` (1MB)    | Maximum allowed size for request bodies in bytes.                      |
+
 ```ts
 elysiaPlugin({
-  // Path to your Elysia API module (relative to project root)
-  serverFile?: string; // default: "/server/api.ts"
-
-  // Enable WebSocket support (runs API as a separate process + Vite proxy)
-  ws?: boolean; // default: false
-
-  // Path prefix for API routes (used for proxying in WS mode)
-  apiPrefix?: string; // default: "/api"
-
-  // Port for the backend API server in WS mode
-  backendPort?: number; // default: 3001
-})
+  serverFile: "/server/api.ts",
+  ws: true,
+  apiPrefix: "/api",
+  backendPort: 3001,
+  MAX_BODY_SIZE: 1024 * 1024, // 1MB
+});
 ```
 
 ## 4. API Module Requirements

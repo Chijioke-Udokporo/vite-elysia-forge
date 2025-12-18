@@ -1,6 +1,6 @@
 {
   "name": "vite-elysia-forge",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "A Vite plugin to seamlessly integrate ElysiaJS for full-stack development with Bun runtime.",
   "type": "module",
   "main": "dist/index.cjs",
@@ -19,6 +19,10 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^22.7.4",
+    "@typescript-eslint/eslint-plugin": "^8.50.0",
+    "@typescript-eslint/parser": "^8.50.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-security": "^3.0.1",
     "tsup": "^8.5.1"
   },
   "peerDependencies": {

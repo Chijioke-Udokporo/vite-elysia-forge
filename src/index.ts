@@ -38,6 +38,13 @@ export interface ConfigOptions {
    * @default 3001
    */
   backendPort?: number;
+
+  /**
+   * Maximum allowed size for request bodies in bytes.
+   * Requests exceeding this size will receive a 413 Payload Too Large response.
+   * @default 1048576 (1MB)
+   */
+  MAX_BODY_SIZE?: number;
 }
 
 /**
@@ -54,6 +61,7 @@ function elysiaPlugin({
   ws = false,
   apiPrefix = "/api",
   backendPort = 3001,
+  MAX_BODY_SIZE = 1024 * 1024,
 }: ConfigOptions = {}): Plugin {
   return {
     name: "vite-elysia-forge",
@@ -117,7 +125,7 @@ function elysiaPlugin({
             mkdirSync(tempDir, { recursive: true });
           }
 
-          const scriptContent = `import { api } from "${relativeApiImport}";
+          const scriptContent = `import { api } from ${JSON.stringify(relativeApiImport)};
 api.listen(${backendPort});
 console.log("WebSocket server running at ws://localhost:${backendPort}");
 `;
@@ -216,7 +224,15 @@ console.log("WebSocket server running at ws://localhost:${backendPort}");
           let body: string | undefined;
           if (req.method !== "GET" && req.method !== "HEAD") {
             const chunks: Buffer[] = [];
+            let totalSize = 0;
+
             for await (const chunk of req) {
+              totalSize += chunk.length;
+              if (totalSize > MAX_BODY_SIZE) {
+                res.statusCode = 413;
+                res.end("Payload Too Large");
+                return;
+              }
               chunks.push(chunk);
             }
             body = Buffer.concat(chunks).toString();

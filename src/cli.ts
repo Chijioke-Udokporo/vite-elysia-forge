@@ -38,7 +38,7 @@ export async function build(apiEntry: string = "src/server/api.ts") {
 
   const tempContent = `
 import { startServer } from "vite-elysia-forge/production";
-import { api } from "${relativeApiEntry}";
+import { api } from ${JSON.stringify(relativeApiEntry)};
 
 startServer({
   api,
