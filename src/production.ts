@@ -1,4 +1,5 @@
 import { resolve, join } from "node:path";
+import { Elysia } from "elysia";
 
 /**
  * Options for starting the production server.
@@ -48,28 +49,35 @@ export const startServer = (options: ProductionOptions): void => {
 
   if (typeof Bun === "undefined") throw new Error("This production server utility requires Bun.");
 
-  Bun.serve({
-    port,
-    async fetch(req) {
-      const url = new URL(req.url);
+  const app = new Elysia();
 
-      // 1. Handle API requests
-      if (url.pathname.startsWith(apiPrefix)) {
-        return api.handle(req);
-      }
+  // Mount user's Elysia app (including WS routes)
+  if (api) app.use(api);
 
-      // 2. Serve static files
-      let path = url.pathname;
-      if (path === "/") path = "/index.html";
+  // Static + SPA fallback (kept outside /api)
+  app.all("/*", async ({ request, set }) => {
+    const url = new URL(request.url);
 
-      const filePath = join(dist, path.startsWith("/") ? path.slice(1) : path);
-      const file = Bun.file(filePath);
+    // If it looks like an API request but no API route matched, return 404
+    if (url.pathname.startsWith(apiPrefix)) {
+      set.status = 404;
+      return "Not Found";
+    }
 
-      if (await file.exists()) return new Response(file); // Serve the static file
-      if (req.method === "GET") return new Response(Bun.file(indexHtml)); // 3. SPA Fallback
-      return new Response("Not Found", { status: 404 }); // 4. 404 for other methods
-    },
+    let path = url.pathname;
+    if (path === "/") path = "/index.html";
+
+    const filePath = join(dist, path.startsWith("/") ? path.slice(1) : path);
+    const file = Bun.file(filePath);
+
+    if (await file.exists()) return file;
+    if (request.method === "GET") return Bun.file(indexHtml);
+
+    set.status = 404;
+    return "Not Found";
   });
+
+  app.listen(port);
 
   console.log(`Production server running at http://localhost:${port}`);
 };

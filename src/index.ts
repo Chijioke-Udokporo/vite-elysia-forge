@@ -1,4 +1,6 @@
-import { resolve } from "node:path";
+import { resolve, relative } from "node:path";
+import { spawn, type ChildProcess } from "node:child_process";
+import { writeFileSync, unlinkSync, existsSync, mkdirSync } from "node:fs";
 import type { Plugin } from "vite";
 
 /**
@@ -11,6 +13,31 @@ export interface ConfigOptions {
    * @default "/server/api.ts"
    */
   serverFile?: string;
+
+  /**
+   * Enable WebSocket-capable mode by running the API as a real Bun/Elysia server
+   * on a separate port, and letting Vite proxy to it (including WS upgrades).
+   *
+   * When enabled, the plugin will:
+   * - start (and hot-restart) `api.listen(backendPort)`
+   * - configure Vite `server.proxy[apiPrefix]` with `ws: true`
+   *
+   * @default false
+   */
+  ws?: boolean;
+
+  /**
+   * Path prefix for API routes.
+   * Used for Vite proxy configuration in `ws` mode.
+   * @default "/api"
+   */
+  apiPrefix?: string;
+
+  /**
+   * The port to run the backend API server on in `ws` mode.
+   * @default 3001
+   */
+  backendPort?: number;
 }
 
 /**
@@ -22,9 +49,27 @@ export interface ConfigOptions {
  * @param options - Configuration options for the plugin.
  * @returns A Vite plugin instance.
  */
-function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions = {}): Plugin {
+function elysiaPlugin({
+  serverFile = "/server/api.ts",
+  ws = false,
+  apiPrefix = "/api",
+  backendPort = 3001,
+}: ConfigOptions = {}): Plugin {
   return {
     name: "vite-elysia-forge",
+    config: ws
+      ? () => ({
+          server: {
+            proxy: {
+              [apiPrefix]: {
+                target: `http://localhost:${backendPort}`,
+                changeOrigin: true,
+                ws: true,
+              },
+            },
+          },
+        })
+      : undefined,
     async configureServer(server) {
       const apiModulePath = serverFile;
       const apiFile = resolve(server.config.root, apiModulePath.slice(1));
@@ -35,6 +80,81 @@ function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions = {}): Pl
       };
 
       let api = await loadApi();
+
+      let backendProcess: ChildProcess | null = null;
+      let restarting = false;
+
+      const startBackend = async () => {
+        if (!ws) return;
+        if (restarting) return;
+        restarting = true;
+
+        try {
+          // Kill previous process if running
+          if (backendProcess) {
+            backendProcess.kill("SIGTERM");
+            backendProcess = null;
+          }
+
+          // Create a temporary script file that imports the user's API and calls .listen()
+          // We use a relative path from the temp script to the API file to ensure Bun resolves it correctly
+          const tempDir = resolve(server.config.root, "node_modules", ".vite-elysia-forge");
+          const tempScript = resolve(tempDir, "dev-server.ts");
+          const absoluteApiFile = resolve(
+            server.config.root,
+            apiModulePath.startsWith("/") ? apiModulePath.slice(1) : apiModulePath
+          );
+
+          // Calculate relative path from tempScript to absoluteApiFile
+          // We need to handle Windows paths correctly if necessary, but for now standard relative is fine
+          // We also need to ensure it starts with ./ or ../
+          let relativeApiImport = relative(tempDir, absoluteApiFile);
+          if (!relativeApiImport.startsWith(".")) {
+            relativeApiImport = "./" + relativeApiImport;
+          }
+
+          if (!existsSync(tempDir)) {
+            mkdirSync(tempDir, { recursive: true });
+          }
+
+          const scriptContent = `import { api } from "${relativeApiImport}";
+api.listen(${backendPort});
+console.log("WebSocket server running at ws://localhost:${backendPort}");
+`;
+          writeFileSync(tempScript, scriptContent);
+
+          // Spawn bun to run the temp script file
+          backendProcess = spawn("bun", ["run", tempScript], {
+            stdio: ["ignore", "inherit", "inherit"],
+            cwd: server.config.root,
+            env: { ...process.env },
+          });
+
+          backendProcess.on("error", (err) => {
+            console.error(`Failed to start API server: ${err.message}`);
+          });
+
+          backendProcess.on("exit", (code) => {
+            if (code !== null && code !== 0) {
+              console.error(`API server process exited with code ${code}`);
+            }
+            backendProcess = null;
+          });
+        } finally {
+          restarting = false;
+        }
+      };
+
+      if (ws) {
+        await startBackend();
+
+        server.httpServer?.once("close", () => {
+          if (backendProcess) {
+            backendProcess.kill("SIGTERM");
+            backendProcess = null;
+          }
+        });
+      }
 
       server.watcher.add(apiFile);
       server.watcher.on("change", async (file) => {
@@ -68,11 +188,17 @@ function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions = {}): Pl
         try {
           server.moduleGraph.invalidateModule(entryMod);
           api = await loadApi();
-          console.log("[vite-elysia-forge] Reloaded Elysia API module");
+          console.log("Reloaded Elysia API module");
+
+          if (ws) {
+            await startBackend();
+          }
         } catch (error) {
-          console.error(`[vite-elysia-forge] Failed to reload Elysia API: ${error}`);
+          console.error(`Failed to reload Elysia API: ${error}`);
         }
       });
+
+      if (ws) return;
 
       server.middlewares.use(async (req, res, next) => {
         // Only handle /api routes
@@ -115,7 +241,7 @@ function elysiaPlugin({ serverFile = "/server/api.ts" }: ConfigOptions = {}): Pl
           const responseBody = await response.text();
           res.end(responseBody);
         } catch (error) {
-          console.error(`[vite-elysia-forge] Elysia error: ${error}`);
+          console.error(`Elysia error: ${error}`);
           res.statusCode = 500;
           res.end("Internal Server Error");
         }

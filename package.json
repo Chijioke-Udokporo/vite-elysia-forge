@@ -16,7 +16,6 @@
     "build": "rm -rf dist &&bun run test && tsup",
     "test": "bun test"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^22.7.4",

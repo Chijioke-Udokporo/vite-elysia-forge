@@ -65,12 +65,21 @@ bun run dev
 elysiaPlugin({
   // Path to your Elysia API module (relative to project root)
   serverFile?: string; // default: "/server/api.ts"
+
+  // Enable WebSocket support (runs API as a separate process + Vite proxy)
+  ws?: boolean; // default: false
+
+  // Path prefix for API routes (used for proxying in WS mode)
+  apiPrefix?: string; // default: "/api"
+
+  // Port for the backend API server in WS mode
+  backendPort?: number; // default: 3001
 })
 ```
 
 ## 4. API Module Requirements
 
-Your API module must export an Elysia instance with a `handle(request: Request) => Promise<Response>` method.
+Your API module must export an Elysia instance as `api`.
 
 ### 4.1 Basic Example
 
@@ -87,7 +96,53 @@ api.get("/users", () => ["user1", "user2"]);
 export default api;
 ```
 
-## 5. Integration with @elysiajs/openapi
+### 4.2 WebSocket Example
+
+```ts
+import { Elysia } from "elysia";
+
+export const api = new Elysia({
+  prefix: "/api",
+})
+  .get("/", () => "hello from elysia")
+  .ws("/ws", {
+    message(ws, message) {
+      ws.send(`Echo: ${message}`);
+    },
+  });
+
+export default api;
+```
+
+## 5. WebSocket Support
+
+By default, the plugin runs your API as middleware inside Vite's dev server. This works great for HTTP routes but **does not support WebSockets** (Elysia's `.ws()` routes).
+
+To enable WebSocket support, set `ws: true`:
+
+```ts
+elysiaPlugin({
+  serverFile: "./src/server/api.ts",
+  ws: true, // Enable WebSocket support
+  backendPort: 3001, // API runs on this port (default: 3001)
+});
+```
+
+### 5.1 How WS Mode Works
+
+When `ws: true`:
+
+1. The plugin spawns a **separate Bun process** that runs your API with `api.listen(backendPort)`.
+2. Vite is configured to **proxy** `/api` requests (including WebSocket upgrades) to that backend.
+3. On file changes, the backend process is **automatically restarted**.
+
+This ensures full Bun runtime support for WebSockets, even if Vite itself runs under Node.js.
+
+### 5.2 Production
+
+In production, the built server (`dist/server.js` or the compiled binary) runs your Elysia app directly with full WebSocket support—no proxy needed.
+
+## 6. Integration with @elysiajs/openapi
 
 To use the [@elysiajs/openapi plugin](https://elysiajs.com/patterns/openapi), add the following to your `tsconfig.json`:
 
@@ -100,7 +155,7 @@ To use the [@elysiajs/openapi plugin](https://elysiajs.com/patterns/openapi), ad
 }
 ```
 
-### 5.1 Example with `fromTypes`
+### 6.1 Example with `fromTypes`
 
 It is recommended to pre-generate the declaration file (`.d.ts`) to provide type declaration to the generator.
 
@@ -115,9 +170,9 @@ const app = new Elysia().use(
 );
 ```
 
-## 6. Production Deployment
+## 7. Production Deployment
 
-### 6.1 Build Configuration
+### 7.1 Build Configuration
 
 Update your `package.json` scripts:
 
@@ -153,7 +208,7 @@ If your API is located elsewhere, specify the path:
 vite-elysia-forge build src/my-api.ts
 ```
 
-### 6.2 Building for Production
+### 7.2 Building for Production
 
 Run the build command:
 
@@ -167,7 +222,7 @@ This command performs the following steps:
 2. Automatically generates a temporary entry file that imports your API from `src/server/api.ts`
 3. Bundles the server into a single file at `dist/server.js`
 
-### 6.3 Building a Standalone Binary
+### 7.3 Building a Standalone Binary
 
 If you want a single executable (no Bun runtime required on the target machine), set your `build` script to `vite-elysia-forge build-compile` (Option B above) and run:
 
@@ -177,7 +232,7 @@ bun run build
 
 This runs the normal build and then compiles `dist/server.js` into a standalone binary at `dist/server`.
 
-### 6.4 Starting the Production Server
+### 7.4 Starting the Production Server
 
 Start the server with:
 
@@ -185,9 +240,9 @@ Start the server with:
 bun start
 ```
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
-### 7.1 "Bun is not defined" Error
+### 8.1 "Bun is not defined" Error
 
 If you encounter this error, ensure you are running Vite with the Bun runtime:
 
@@ -213,14 +268,27 @@ Or update your `dev` script in `package.json`:
 - **Node.js Compatibility:** While Bun has excellent Node.js compatibility, some Vite plugins that rely on obscure Node.js internals might behave unexpectedly.
 - **Performance:** Running Vite under Bun is generally faster, but you might encounter edge cases where optimization differs from Node.js.
 
-### 7.2 Hot Reload Not Working
+### 8.2 Hot Reload Not Working
 
 Check that your file changes are within the dependency graph of your API module. The plugin uses Vite's dependency tracking to determine when to reload.
 
-## 8. Authors
+### 8.3 WebSocket "adapter doesn't support" Error
+
+If you see `Current adapter doesn't support WebSocket`, you need to enable WS mode:
+
+```ts
+elysiaPlugin({
+  serverFile: "./src/server/api.ts",
+  ws: true,
+});
+```
+
+This spawns your API as a separate Bun process with full WebSocket support.
+
+## 9. Authors
 
 - Chijioke Udokporo ([@chijiokeudokporo](https://github.com/chijioke-udokporo))
 
-## 9. License
+## 10. License
 
 MIT
