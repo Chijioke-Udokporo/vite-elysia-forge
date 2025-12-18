@@ -82,6 +82,20 @@ startServer({
   }
 }
 
+export async function buildCompile(apiEntry: string = "src/server/api.ts") {
+  await build(apiEntry);
+
+  const compile = spawnSync("bun", ["build", "--compile", "dist/server.js", "--outfile", "dist/server"], {
+    stdio: "inherit",
+    env: { ...process.env, NODE_ENV: "production" },
+  });
+
+  if (compile.status !== 0) {
+    console.error("❌ Bun compile failed");
+    process.exit(compile.status || 1);
+  }
+}
+
 if (import.meta.main) {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -89,8 +103,15 @@ if (import.meta.main) {
   if (command === "build") {
     const entry = args[1];
     build(entry);
+  } else if (command === "build-compile") {
+    const entry = args[1];
+    buildCompile(entry);
   } else {
-    console.log("Usage: vite-elysia-forge build [api-entry]");
-    console.log("  api-entry: Path to your API entry file (default: src/server/api.ts)");
+    console.log("Usage: vite-elysia-forge <command> [api-entry]");
+    console.log("Commands:");
+    console.log("  build          Build frontend + bundle server to dist/server.js");
+    console.log("  build-compile  Build and compile a standalone server binary to dist/server");
+    console.log("");
+    console.log("api-entry: Path to your API entry file (default: src/server/api.ts)");
   }
 }

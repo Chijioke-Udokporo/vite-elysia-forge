@@ -121,12 +121,28 @@ const app = new Elysia().use(
 
 Update your `package.json` scripts:
 
+Pick **one** build mode.
+
+Option A: build to `dist/server.js` (run with Bun):
+
 ```json
 {
   "scripts": {
     "dev": "vite",
     "build": "vite-elysia-forge build",
     "start": "bun dist/server.js"
+  }
+}
+```
+
+Option B: build + compile to a standalone binary `dist/server`:
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite-elysia-forge build-compile",
+    "start": "./dist/server"
   }
 }
 ```
@@ -151,7 +167,17 @@ This command performs the following steps:
 2. Automatically generates a temporary entry file that imports your API from `src/server/api.ts`
 3. Bundles the server into a single file at `dist/server.js`
 
-### 6.3 Starting the Production Server
+### 6.3 Building a Standalone Binary
+
+If you want a single executable (no Bun runtime required on the target machine), set your `build` script to `vite-elysia-forge build-compile` (Option B above) and run:
+
+```bash
+bun run build
+```
+
+This runs the normal build and then compiles `dist/server.js` into a standalone binary at `dist/server`.
+
+### 6.4 Starting the Production Server
 
 Start the server with:
 

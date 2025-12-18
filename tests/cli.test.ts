@@ -1,5 +1,5 @@
 import { describe, expect, it, mock, spyOn, afterEach, beforeEach } from "bun:test";
-import { build } from "../src/cli";
+import { build, buildCompile } from "../src/cli";
 import * as fs from "node:fs";
 import * as child_process from "node:child_process";
 
@@ -134,5 +134,75 @@ describe("CLI build", () => {
     const rmArgs = rmSyncMock.mock.calls[0] as any[];
     expect(rmArgs[0]).toContain(".output");
     expect(rmArgs[1]).toEqual({ recursive: true, force: true });
+  });
+});
+
+describe("CLI build-compile", () => {
+  beforeEach(() => {
+    console.log = mock();
+    console.error = mock();
+    // @ts-ignore
+    process.exit = mock((code?: number) => {
+      throw new Error(`Process exited with code ${code}`);
+    });
+  });
+
+  afterEach(() => {
+    Bun.build = originalBunBuild;
+    process.exit = originalProcessExit;
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+    mock.restore();
+  });
+
+  it("runs build then compiles to dist/server", async () => {
+    spyOn(fs, "existsSync").mockReturnValue(true);
+    spyOn(fs, "writeFileSync").mockImplementation(() => {});
+    spyOn(fs, "unlinkSync").mockImplementation(() => {});
+    spyOn(fs, "rmSync").mockImplementation(() => {});
+
+    const spawnSyncMock = mock(() => ({ status: 0 }) as any);
+    spyOn(child_process, "spawnSync").mockImplementation(spawnSyncMock);
+
+    const bunBuildMock = mock(async () => ({ success: true, logs: [] }) as any);
+    Bun.build = bunBuildMock;
+
+    await buildCompile("src/server/api.ts");
+
+    // First call is `bun x vite build`, second call is `bun build --compile ...`
+    expect(spawnSyncMock).toHaveBeenCalledTimes(2);
+    const firstArgs = (spawnSyncMock.mock.calls[0] as any)[1];
+    expect(firstArgs).toContain("vite");
+    expect(firstArgs).toContain("build");
+
+    const secondArgs = (spawnSyncMock.mock.calls[1] as any)[1];
+    expect(secondArgs).toEqual(["build", "--compile", "dist/server.js", "--outfile", "dist/server"]);
+  });
+
+  it("fails if bun compile fails", async () => {
+    spyOn(fs, "existsSync").mockReturnValue(true);
+    spyOn(fs, "writeFileSync").mockImplementation(() => {});
+    spyOn(fs, "unlinkSync").mockImplementation(() => {});
+    spyOn(fs, "rmSync").mockImplementation(() => {});
+
+    const spawnSyncMock = mock(() => ({ status: 0 }) as any);
+    const spawnSyncSpy = spyOn(child_process, "spawnSync").mockImplementation(spawnSyncMock);
+
+    const bunBuildMock = mock(async () => ({ success: true, logs: [] }) as any);
+    Bun.build = bunBuildMock;
+
+    // Make the second spawnSync (compile) fail
+    spawnSyncMock
+      .mockImplementationOnce(() => ({ status: 0 }) as any)
+      .mockImplementationOnce(() => ({ status: 1 }) as any);
+
+    try {
+      await buildCompile("src/server/api.ts");
+    } catch (e: any) {
+      expect(e.message).toBe("Process exited with code 1");
+    }
+
+    expect(spawnSyncSpy).toHaveBeenCalledTimes(2);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("Bun compile failed"));
   });
 });
