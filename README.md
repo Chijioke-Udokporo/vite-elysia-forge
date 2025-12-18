@@ -289,6 +289,29 @@ elysiaPlugin({
 
 This spawns your API as a separate Bun process with full WebSocket support.
 
+### 8.4 "ReferenceError: process is not defined" with OpenAPI
+
+If you use `@elysiajs/openapi` with `fromTypes` and see this error in the browser console:
+
+\`\`\`
+Uncaught ReferenceError: process is not defined
+at fromTypes ...
+\`\`\`
+
+This happens because \`fromTypes\` relies on Node.js/Bun APIs that don't exist in the browser. It usually means you are importing your server file as a value in client-side code.
+
+**Solution:** Use \`import type\` when importing your API instance for Eden Treaty.
+
+\`\`\`ts
+// ❌ Incorrect
+import { api } from './server/api'
+const client = treaty(api)
+
+// ✅ Correct
+import type { api } from './server/api'
+const client = treaty<typeof api>('localhost:3000')
+\`\`\`
+
 ## 9. Authors
 
 - Chijioke Udokporo ([@chijiokeudokporo](https://github.com/chijioke-udokporo))
