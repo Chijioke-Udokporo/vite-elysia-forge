@@ -221,7 +221,7 @@ console.log("WebSocket server running at ws://localhost:${backendPort}");
           const url = `${protocol}://${host}${req.url}`;
 
           // Collect body for non-GET requests
-          let body: string | undefined;
+          let body: Buffer | undefined;
           if (req.method !== "GET" && req.method !== "HEAD") {
             const chunks: Buffer[] = [];
             let totalSize = 0;
@@ -235,7 +235,7 @@ console.log("WebSocket server running at ws://localhost:${backendPort}");
               }
               chunks.push(chunk);
             }
-            body = Buffer.concat(chunks).toString();
+            body = Buffer.concat(chunks);
           }
 
           // Create a Request object for Elysia
