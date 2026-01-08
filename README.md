@@ -176,72 +176,133 @@ const app = new Elysia().use(
 
 ## 7. Production Deployment
 
-### 7.1 Build Configuration
+The CLI provides several build commands to bundle your frontend and Elysia backend for production.
 
-Update your `package.json` scripts:
+### 7.1 Standard Build (`build`)
 
-Pick **one** build mode.
+Builds the frontend with Vite and bundles the Elysia server into a single JavaScript file.
 
-Option A: build to `dist/server.js` (run with Bun):
+```bash
+vite-elysia-forge build
+```
+
+**What it does:**
+
+1. Runs `vite build` to compile your frontend to `dist/`
+2. Generates a production entry file that imports your API
+3. Bundles the server into `dist/server.js`
+
+**package.json:**
 
 ```json
 {
   "scripts": {
-    "dev": "vite",
     "build": "vite-elysia-forge build",
     "start": "bun dist/server.js"
   }
 }
 ```
 
-Option B: build + compile to a standalone binary `dist/server`:
+### 7.2 Compiled Binary (`build-compile`)
+
+Builds everything and compiles the server into a **standalone executable** (no Bun runtime required on the target machine).
+
+```bash
+vite-elysia-forge build-compile
+```
+
+**What it does:**
+
+1. Performs the standard build
+2. Compiles `dist/server.js` into a native binary at `dist/server`
+
+**package.json:**
 
 ```json
 {
   "scripts": {
-    "dev": "vite",
     "build": "vite-elysia-forge build-compile",
     "start": "./dist/server"
   }
 }
 ```
 
-If your API is located elsewhere, specify the path:
+### 7.3 Separate Outputs (`--static` / `--server`)
+
+Build the frontend and backend to **separate directories** for independent deployment (e.g., static assets to a CDN, server to a VPS).
 
 ```bash
-vite-elysia-forge build src/my-api.ts
+vite-elysia-forge build --static dist --server .output
 ```
 
-### 7.2 Building for Production
+**Output structure:**
 
-Run the build command:
-
-```bash
-bun run build
+```
+project/
+├── dist/           # Static assets (deploy to CDN)
+│   ├── index.html
+│   └── assets/
+└── .output/        # Server bundle (deploy to server)
+    └── server.js
 ```
 
-This command performs the following steps:
+**Use cases:**
 
-1. Runs `vite build` to compile your frontend to `dist/`
-2. Automatically generates a temporary entry file that imports your API from `src/server/api.ts`
-3. Bundles the server into a single file at `dist/server.js`
+- Deploying static assets to Cloudflare Pages, Netlify, Vercel, etc.
+- Running the Elysia server on a separate VPS or Docker container
+- CI/CD pipelines that deploy frontend and backend independently
 
-### 7.3 Building a Standalone Binary
+**package.json:**
 
-If you want a single executable (no Bun runtime required on the target machine), set your `build` script to `vite-elysia-forge build-compile` (Option B above) and run:
-
-```bash
-bun run build
+```json
+{
+  "scripts": {
+    "build": "vite-elysia-forge build --static dist --server .output",
+    "start": "bun .output/server.js"
+  }
+}
 ```
 
-This runs the normal build and then compiles `dist/server.js` into a standalone binary at `dist/server`.
-
-### 7.4 Starting the Production Server
-
-Start the server with:
+Override the static assets path at runtime:
 
 ```bash
-bun start
+STATIC_DIR=/path/to/static bun .output/server.js
+```
+
+### 7.4 Frontend Only (`build-static`)
+
+Build only the frontend, skipping the server bundle.
+
+```bash
+vite-elysia-forge build-static
+```
+
+Useful for rebuilding just the frontend without touching the server.
+
+### 7.5 Server Only (`build-server`)
+
+Build only the server bundle, skipping the Vite frontend build.
+
+```bash
+vite-elysia-forge build-server --server .output --static dist
+```
+
+Useful when the frontend is already built or deployed separately.
+
+### 7.6 CLI Reference
+
+| Option           | Short | Default             | Description                                 |
+| :--------------- | :---: | :------------------ | :------------------------------------------ |
+| `--api <path>`   | `-a`  | `src/server/api.ts` | Path to API entry file                      |
+| `--static <dir>` | `-s`  | `dist`              | Output directory for static frontend assets |
+| `--server <dir>` | `-o`  | Same as `--static`  | Output directory for server bundle          |
+| `--skip-vite`    |       | `false`             | Skip the Vite frontend build                |
+| `--skip-server`  |       | `false`             | Skip the server build                       |
+
+**Example with custom API path:**
+
+```bash
+vite-elysia-forge build --api src/my-api.ts
 ```
 
 ## 8. Troubleshooting

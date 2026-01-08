@@ -176,7 +176,12 @@ describe("CLI build-compile", () => {
     expect(firstArgs).toContain("build");
 
     const secondArgs = (spawnSyncMock.mock.calls[1] as any)[1];
-    expect(secondArgs).toEqual(["build", "--compile", "dist/server.js", "--outfile", "dist/server"]);
+    // Now uses absolute paths
+    expect(secondArgs[0]).toBe("build");
+    expect(secondArgs[1]).toBe("--compile");
+    expect(secondArgs[2]).toEndWith("dist/server.js");
+    expect(secondArgs[3]).toBe("--outfile");
+    expect(secondArgs[4]).toEndWith("dist/server");
   });
 
   it("fails if bun compile fails", async () => {
