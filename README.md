@@ -178,6 +178,12 @@ const app = new Elysia().use(
 
 The CLI provides several build commands to bundle your frontend and Elysia backend for production.
 
+By default, the CLI looks for your API at `src/server/api.ts`. You can specify a custom path with the `--api` flag:
+
+```bash
+vite-elysia-forge build --api server/api.ts
+```
+
 ### 7.1 Standard Build (`build`)
 
 Builds the frontend with Vite and bundles the Elysia server into a single JavaScript file.
