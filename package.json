@@ -1,6 +1,6 @@
 {
   "name": "vite-elysia-forge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A Vite plugin to seamlessly integrate ElysiaJS for full-stack development with Bun runtime.",
   "type": "module",
   "main": "dist/index.cjs",
