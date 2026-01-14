@@ -75,7 +75,7 @@ if (api) app.use(api);
 const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 app.listen(port);
 
-console.log(\`Production server running at http://localhost:\${port}\`);
+console.log(\`Production server running at http://\${app?.server?.hostname}:\${app?.server?.port}\`);
 `;
 
   writeFileSync(tempEntry, tempContent);
