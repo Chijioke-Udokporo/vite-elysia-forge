@@ -279,7 +279,7 @@ vite-elysia-forge build [options]
 vite-elysia-forge build --outDir dist
 
 # Bundle with node target
-vite-elysia-forge build --outDir dist --target node
+vite-elysia-forge build --outDir build--target node
 
 # Compile to standalone binary
 vite-elysia-forge build --outFile server
@@ -288,7 +288,7 @@ vite-elysia-forge build --outFile server
 vite-elysia-forge build --entry src/api/index.ts --outFile myserver
 
 # Bundle without minification
-vite-elysia-forge build --outDir dist --no-minify
+vite-elysia-forge build --outDir build--no-minify
 ```
 
 ### 7.5 Deployment Architecture

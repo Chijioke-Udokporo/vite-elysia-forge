@@ -86,7 +86,7 @@ console.log(\`Production server running at http://\${app?.server?.hostname}:\${a
       await buildCompile(tempEntry, options.outFile, target, minify);
     } else {
       // Bundle to directory
-      const outDir = options.outDir || "dist";
+      const outDir = options.outDir || "build";
       await buildBundle(tempEntry, outDir, target, minify);
     }
   } finally {
@@ -262,11 +262,11 @@ if (import.meta.main) {
     console.log("  --no-minify           Disable minification");
     console.log("");
     console.log("Examples:");
-    console.log("  # Bundle server to dist/server.js");
-    console.log("  vite-elysia-forge build --outDir dist");
+    console.log("  # Bundle server to build/server.js");
+    console.log("  vite-elysia-forge build --outDir build");
     console.log("");
     console.log("  # Bundle with node target");
-    console.log("  vite-elysia-forge build --outDir dist --target node");
+    console.log("  vite-elysia-forge build --outDir build --target node");
     console.log("");
     console.log("  # Compile to standalone binary");
     console.log("  vite-elysia-forge build --outFile server");
