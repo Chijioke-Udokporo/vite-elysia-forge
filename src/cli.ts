@@ -1,155 +1,118 @@
 #!/usr/bin/env bun
 import { spawnSync } from "node:child_process";
-import { existsSync, writeFileSync, unlinkSync, mkdirSync, rmSync, copyFileSync, readdirSync, statSync } from "node:fs";
-import { resolve, relative, sep, join, basename } from "node:path";
+import { existsSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from "node:fs";
+import { resolve, relative, sep, dirname } from "node:path";
 
 /**
- * Build options for customizing output directories.
+ * Bun build target options.
+ */
+export type BuildTarget = "bun" | "node" | "browser";
+
+/**
+ * Build options for the server bundle.
  */
 export interface BuildOptions {
   /**
    * Path to the API entry file.
-   * @default "src/server/api.ts"
+   * @default "server/api.ts"
    */
-  apiEntry?: string;
+  entry?: string;
   /**
-   * Output directory for the Vite/frontend static assets.
-   * @default "dist"
+   * Output directory for the server bundle (used with --outDir).
+   * Mutually exclusive with outFile.
    */
-  staticDir?: string;
+  outDir?: string;
   /**
-   * Output directory for the Elysia server bundle.
-   * When set to a different value than staticDir, the server and static assets
-   * will be built to separate directories.
-   * @default "dist" (same as staticDir)
+   * Output file path for compiled standalone binary (used with --outFile).
+   * Mutually exclusive with outDir.
    */
-  serverDir?: string;
+  outFile?: string;
   /**
-   * Whether to skip the Vite frontend build.
-   * Useful when you only want to rebuild the server.
-   * @default false
+   * Build target for Bun.build.
+   * @default "bun"
    */
-  skipVite?: boolean;
+  target?: BuildTarget;
   /**
-   * Whether to skip the server build.
-   * Useful when you only want to rebuild the frontend.
-   * @default false
+   * Whether to minify the output.
+   * @default true
    */
-  skipServer?: boolean;
+  minify?: boolean;
 }
 
-/**
- * Copies a directory recursively.
- */
-function copyDir(src: string, dest: string): void {
-  if (!existsSync(dest)) mkdirSync(dest, { recursive: true });
-  const entries = readdirSync(src);
-  for (const entry of entries) {
-    const srcPath = join(src, entry);
-    const destPath = join(dest, entry);
-    const stat = statSync(srcPath);
-    if (stat.isDirectory()) {
-      copyDir(srcPath, destPath);
-    } else {
-      copyFileSync(srcPath, destPath);
-    }
-  }
-}
+export async function build(options: BuildOptions = {}): Promise<void> {
+  const entry = options.entry || "server/api.ts";
+  const target = options.target || "bun";
+  const minify = options.minify !== false;
 
-export async function build(options: BuildOptions | string = {}): Promise<void> {
-  // Support legacy string argument for backward compatibility
-  const opts: BuildOptions = typeof options === "string" ? { apiEntry: options } : options;
+  const absoluteEntry = resolve(process.cwd(), entry);
 
-  const apiEntry = opts.apiEntry || "src/server/api.ts";
-  const staticDir = opts.staticDir || "dist";
-  const serverDir = opts.serverDir || staticDir;
-  const skipVite = opts.skipVite || false;
-  const skipServer = opts.skipServer || false;
-  const separateOutputs = staticDir !== serverDir;
-
-  const absoluteApiEntry = resolve(process.cwd(), apiEntry);
-
-  if (!skipServer && !existsSync(absoluteApiEntry)) {
-    console.error(`❌ API entry file "${apiEntry}" not found.`);
-    console.error(`   By default, vite-elysia-forge looks for "src/server/api.ts".`);
+  if (!existsSync(absoluteEntry)) {
+    console.error(`❌ API entry file "${entry}" not found.`);
+    console.error(`   By default, vite-elysia-forge looks for "server/api.ts".`);
     console.error(`   If your API is located elsewhere, please specify the path:`);
-    console.error(`   $ vite-elysia-forge build --api <path-to-your-api-file>`);
+    console.error(`   $ vite-elysia-forge build --entry <path-to-your-api-file>`);
     process.exit(1);
   }
 
-  // Run vite build
-  if (!skipVite) {
-    console.log(`📦 Building frontend to "${staticDir}"...`);
-    const viteBuild = spawnSync("bun", ["x", "vite", "build", "--outDir", staticDir], {
-      stdio: "inherit",
-      env: { ...process.env, NODE_ENV: "production" },
-    });
-
-    if (viteBuild.status !== 0) {
-      console.error("❌ Vite build failed");
-      process.exit(viteBuild.status || 1);
-    }
-    console.log(`✅ Frontend built to "${staticDir}"`);
-  }
-
-  if (skipServer) {
-    console.log("⏭️  Skipping server build (--skip-server)");
-    return;
-  }
-
-  // Create a temporary entry file
-  const tempDir = resolve(process.cwd(), ".output");
+  // Create a temporary entry file that wraps the API
+  const tempDir = resolve(process.cwd(), ".vef-temp");
   if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
   const tempEntry = resolve(tempDir, ".temp-prod.ts");
 
   // Calculate relative path from tempDir to api entry
-  let relativeApiEntry = relative(tempDir, absoluteApiEntry);
+  let relativeEntry = relative(tempDir, absoluteEntry);
   // Normalize path separators for imports (Windows support)
-  relativeApiEntry = relativeApiEntry.split(sep).join("/");
-  if (!relativeApiEntry.startsWith(".")) relativeApiEntry = "./" + relativeApiEntry;
-
-  // For separate outputs, the server needs to know the path to static assets
-  // We use a relative path from serverDir to staticDir
-  let staticDirPath: string;
-  if (separateOutputs) {
-    const absServerDir = resolve(process.cwd(), serverDir);
-    const absStaticDir = resolve(process.cwd(), staticDir);
-    staticDirPath = relative(absServerDir, absStaticDir);
-    if (!staticDirPath.startsWith(".")) staticDirPath = "./" + staticDirPath;
-    // Normalize for cross-platform
-    staticDirPath = staticDirPath.split(sep).join("/");
-  } else {
-    staticDirPath = "."; // Same directory
-  }
+  relativeEntry = relativeEntry.split(sep).join("/");
+  if (!relativeEntry.startsWith(".")) relativeEntry = "./" + relativeEntry;
 
   const tempContent = `
-import { startServer } from "vite-elysia-forge/production";
-import { api } from ${JSON.stringify(relativeApiEntry)};
+import { Elysia } from "elysia";
+import { api } from ${JSON.stringify(relativeEntry)};
 
-startServer({
-  api,
-  port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
-  distDir: process.env.STATIC_DIR || ${JSON.stringify(staticDirPath)},
-});
+const app = new Elysia();
+if (api) app.use(api);
+
+const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+app.listen(port);
+
+console.log(\`Production server running at http://localhost:\${port}\`);
 `;
 
   writeFileSync(tempEntry, tempContent);
 
-  // Ensure server output directory exists
-  const absServerDir = resolve(process.cwd(), serverDir);
-  if (!existsSync(absServerDir)) mkdirSync(absServerDir, { recursive: true });
+  try {
+    if (options.outFile) {
+      // Compile to standalone binary
+      await buildCompile(tempEntry, options.outFile, target, minify);
+    } else {
+      // Bundle to directory
+      const outDir = options.outDir || "dist";
+      await buildBundle(tempEntry, outDir, target, minify);
+    }
+  } finally {
+    // Clean up temp files
+    if (existsSync(tempEntry)) {
+      unlinkSync(tempEntry);
+    }
+    if (existsSync(tempDir)) {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  }
+}
 
-  console.log(`📦 Building server to "${serverDir}"...`);
+async function buildBundle(entryPath: string, outDir: string, target: BuildTarget, minify: boolean): Promise<void> {
+  const absOutDir = resolve(process.cwd(), outDir);
+  if (!existsSync(absOutDir)) mkdirSync(absOutDir, { recursive: true });
 
-  // We use Bun.build to bundle the server
-  // This requires the script to be run with Bun
+  console.log(`📦 Building server to "${outDir}/" (target: ${target})...`);
+
   try {
     const result = await Bun.build({
-      entrypoints: [tempEntry],
-      outdir: serverDir,
-      target: "bun",
-      minify: true,
-      naming: "server.js", // Fixed name for simplicity
+      entrypoints: [entryPath],
+      outdir: absOutDir,
+      target,
+      minify,
+      naming: "server.js",
     });
 
     if (!result.success) {
@@ -159,51 +122,68 @@ startServer({
       }
       process.exit(1);
     }
-    console.log(`✅ Server built to "${serverDir}/server.js"`);
+    console.log(`✅ Server built to "${outDir}/server.js"`);
+    console.log(`\n💡 To run: bun ${outDir}/server.js`);
   } catch (e) {
     console.error("❌ Failed to build server. Ensure you are running this command with Bun.");
     console.error(e);
     process.exit(1);
-  } finally {
-    // Clean up temp file
-    if (existsSync(tempEntry)) {
-      unlinkSync(tempEntry);
-    }
-    if (existsSync(tempDir)) {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
-  }
-
-  if (separateOutputs) {
-    console.log(`\n📁 Output structure:`);
-    console.log(`   Static assets: ${staticDir}/`);
-    console.log(`   Server bundle: ${serverDir}/server.js`);
-    console.log(`\n💡 To run: cd ${serverDir} && bun server.js`);
-    console.log(`   Or set STATIC_DIR to override the static assets path`);
   }
 }
 
-export async function buildCompile(options: BuildOptions | string = {}): Promise<void> {
-  // Support legacy string argument for backward compatibility
-  const opts: BuildOptions = typeof options === "string" ? { apiEntry: options } : options;
-  const serverDir = opts.serverDir || opts.staticDir || "dist";
+async function buildCompile(entryPath: string, outFile: string, target: BuildTarget, minify: boolean): Promise<void> {
+  const absOutFile = resolve(process.cwd(), outFile);
+  const outDir = dirname(absOutFile);
+  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
-  await build(opts);
+  // First bundle to a temp file
+  const tempBundleDir = resolve(process.cwd(), ".vef-temp-bundle");
+  if (!existsSync(tempBundleDir)) mkdirSync(tempBundleDir, { recursive: true });
 
-  console.log(`🔧 Compiling server to standalone binary...`);
-  const serverPath = resolve(process.cwd(), serverDir, "server.js");
-  const outputPath = resolve(process.cwd(), serverDir, "server");
+  console.log(`📦 Building and compiling server to "${outFile}" (target: ${target})...`);
 
-  const compile = spawnSync("bun", ["build", "--compile", serverPath, "--outfile", outputPath], {
-    stdio: "inherit",
-    env: { ...process.env, NODE_ENV: "production" },
-  });
+  try {
+    // Bundle first
+    const result = await Bun.build({
+      entrypoints: [entryPath],
+      outdir: tempBundleDir,
+      target,
+      minify,
+      naming: "server.js",
+    });
 
-  if (compile.status !== 0) {
-    console.error("❌ Bun compile failed");
-    process.exit(compile.status || 1);
+    if (!result.success) {
+      console.error("❌ Server build failed");
+      for (const log of result.logs) {
+        console.error(log);
+      }
+      process.exit(1);
+    }
+
+    // Then compile to binary
+    const bundledPath = resolve(tempBundleDir, "server.js");
+    const compile = spawnSync("bun", ["build", "--compile", bundledPath, "--outfile", absOutFile], {
+      stdio: "inherit",
+      env: { ...process.env, NODE_ENV: "production" },
+    });
+
+    if (compile.status !== 0) {
+      console.error("❌ Bun compile failed");
+      process.exit(compile.status || 1);
+    }
+
+    console.log(`✅ Compiled standalone binary: ${outFile}`);
+    console.log(`\n💡 To run: ./${outFile}`);
+  } catch (e) {
+    console.error("❌ Failed to compile server. Ensure you are running this command with Bun.");
+    console.error(e);
+    process.exit(1);
+  } finally {
+    // Clean up temp bundle
+    if (existsSync(tempBundleDir)) {
+      rmSync(tempBundleDir, { recursive: true, force: true });
+    }
   }
-  console.log(`✅ Compiled standalone binary: ${serverDir}/server`);
 }
 
 /**
@@ -217,38 +197,37 @@ function parseArgs(args: string[]): BuildOptions {
     const nextArg = args[i + 1];
 
     switch (arg) {
-      case "--api":
-      case "-a":
+      case "--entry":
+      case "-e":
         if (nextArg && !nextArg.startsWith("-")) {
-          opts.apiEntry = nextArg;
+          opts.entry = nextArg;
           i++;
         }
         break;
-      case "--static":
-      case "-s":
+      case "--outDir":
+      case "-d":
         if (nextArg && !nextArg.startsWith("-")) {
-          opts.staticDir = nextArg;
+          opts.outDir = nextArg;
           i++;
         }
         break;
-      case "--server":
+      case "--outFile":
       case "-o":
         if (nextArg && !nextArg.startsWith("-")) {
-          opts.serverDir = nextArg;
+          opts.outFile = nextArg;
           i++;
         }
         break;
-      case "--skip-vite":
-        opts.skipVite = true;
-        break;
-      case "--skip-server":
-        opts.skipServer = true;
-        break;
-      default:
-        // Legacy positional argument support: first non-flag arg is apiEntry
-        if (arg && !arg.startsWith("-") && !opts.apiEntry) {
-          opts.apiEntry = arg;
+      case "--target":
+      case "-t":
+        if (nextArg && !nextArg.startsWith("-")) {
+          opts.target = nextArg as BuildTarget;
+          i++;
         }
+        break;
+      case "--no-minify":
+        opts.minify = false;
+        break;
     }
   }
 
@@ -262,47 +241,37 @@ if (import.meta.main) {
 
   if (command === "build") {
     const opts = parseArgs(commandArgs);
-    build(opts);
-  } else if (command === "build-compile") {
-    const opts = parseArgs(commandArgs);
-    buildCompile(opts);
-  } else if (command === "build-static") {
-    // Convenience command: build only frontend
-    const opts = parseArgs(commandArgs);
-    opts.skipServer = true;
-    build(opts);
-  } else if (command === "build-server") {
-    // Convenience command: build only server (assumes frontend already built)
-    const opts = parseArgs(commandArgs);
-    opts.skipVite = true;
+
+    // Validate mutually exclusive options
+    if (opts.outDir && opts.outFile) {
+      console.error("❌ Cannot use both --outDir and --outFile. Choose one.");
+      process.exit(1);
+    }
+
     build(opts);
   } else {
-    console.log("Usage: vite-elysia-forge <command> [options]");
+    console.log("Usage: vite-elysia-forge build [options]");
     console.log("");
-    console.log("Commands:");
-    console.log("  build          Build frontend + bundle server");
-    console.log("  build-compile  Build and compile a standalone server binary");
-    console.log("  build-static   Build only the frontend (skip server)");
-    console.log("  build-server   Build only the server (skip frontend)");
+    console.log("Build the Elysia server for production.");
     console.log("");
     console.log("Options:");
-    console.log("  --api, -a <path>     Path to API entry file (default: src/server/api.ts)");
-    console.log("  --static, -s <dir>   Output directory for static assets (default: dist)");
-    console.log("  --server, -o <dir>   Output directory for server bundle (default: same as --static)");
-    console.log("  --skip-vite          Skip the Vite frontend build");
-    console.log("  --skip-server        Skip the server build");
+    console.log("  --entry, -e <path>    Path to API entry file (default: server/api.ts)");
+    console.log("  --outDir, -d <dir>    Output directory for bundled server.js");
+    console.log("  --outFile, -o <file>  Output path for compiled standalone binary");
+    console.log("  --target, -t <target> Build target: bun, node, browser (default: bun)");
+    console.log("  --no-minify           Disable minification");
     console.log("");
     console.log("Examples:");
-    console.log("  # Build everything to 'dist/' (default)");
-    console.log("  vite-elysia-forge build");
+    console.log("  # Bundle server to dist/server.js");
+    console.log("  vite-elysia-forge build --outDir dist");
     console.log("");
-    console.log("  # Build with separate output directories");
-    console.log("  vite-elysia-forge build --static dist --server .output");
+    console.log("  # Bundle with node target");
+    console.log("  vite-elysia-forge build --outDir dist --target node");
     console.log("");
-    console.log("  # Build only the frontend");
-    console.log("  vite-elysia-forge build-static --static public");
+    console.log("  # Compile to standalone binary");
+    console.log("  vite-elysia-forge build --outFile server");
     console.log("");
-    console.log("  # Build only the server to a separate folder");
-    console.log("  vite-elysia-forge build-server --server .output --static dist");
+    console.log("  # Compile with custom entry");
+    console.log("  vite-elysia-forge build --entry src/api/index.ts --outFile myserver");
   }
 }

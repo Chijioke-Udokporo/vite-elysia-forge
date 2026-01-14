@@ -14,7 +14,7 @@ export default defineConfig([
   },
   // Production server and CLI (ESM only, Bun-specific)
   {
-    entry: ["src/production.ts", "src/cli.ts"],
+    entry: ["src/cli.ts"],
     format: ["esm"],
     dts: true,
     sourcemap: false,

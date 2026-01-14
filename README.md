@@ -18,7 +18,7 @@ bun install vite-elysia-forge
 
 ### 2.1 Create Your API Handler
 
-Place your Elysia handler at `src/server/api.ts` (default path):
+Place your Elysia handler at `server/api.ts` (default path):
 
 ```ts
 import { Elysia } from "elysia";
@@ -43,7 +43,7 @@ import elysiaPlugin from "vite-elysia-forge";
 export default defineConfig({
   plugins: [
     elysiaPlugin({
-      serverFile: "./src/server/api.ts",
+      serverFile: "./server/api.ts",
     }),
   ],
 });
@@ -126,7 +126,7 @@ To enable WebSocket support, set `ws: true`:
 
 ```ts
 elysiaPlugin({
-  serverFile: "./src/server/api.ts",
+  serverFile: "./server/api.ts",
   ws: true, // Enable WebSocket support
   backendPort: 3001, // API runs on this port (default: 3001)
 });
@@ -144,7 +144,7 @@ This ensures full Bun runtime support for WebSockets, even if Vite itself runs u
 
 ### 5.2 Production
 
-In production, the built server (`dist/server.js` or the compiled binary) runs your Elysia app directly with full WebSocket support—no proxy needed.
+In production, the built server (`build/server.js` or the compiled binary) runs your Elysia app directly with full WebSocket support—no proxy needed.
 
 ## 6. Integration with @elysiajs/openapi
 
@@ -176,139 +176,144 @@ const app = new Elysia().use(
 
 ## 7. Production Deployment
 
-The CLI provides several build commands to bundle your frontend and Elysia backend for production.
+The CLI provides a `build` command for building your Elysia API server. Frontend assets should be built separately using Vite's standard build process (`vite build`).
 
-By default, the CLI looks for your API at `src/server/api.ts`. You can specify a custom path with the `--api` flag:
+By default, the CLI looks for your API at `server/api.ts`. You can specify a custom path with the `--entry` flag.
+
+### 7.1 Frontend Build
+
+Build your frontend using Vite directly:
 
 ```bash
-vite-elysia-forge build --api server/api.ts
+vite build
 ```
 
-### 7.1 Standard Build (`build`)
+**Output:**
 
-Builds the frontend with Vite and bundles the Elysia server into a single JavaScript file.
+```
+dist/
+├── index.html
+└── assets/
+```
+
+Deploy to any static host (Cloudflare Pages, Netlify, Vercel, etc.)
+
+### 7.2 Server Build (`--outDir`)
+
+Build the Elysia API server into a standalone JavaScript bundle.
 
 ```bash
-vite-elysia-forge build
+vite-elysia-forge build --outDir dist
 ```
 
 **What it does:**
 
-1. Runs `vite build` to compile your frontend to `dist/`
-2. Generates a production entry file that imports your API
-3. Bundles the server into `dist/server.js`
+1. Generates a production entry file that imports your API
+2. Bundles the server into `dist/server.js`
 
 **package.json:**
 
 ```json
 {
   "scripts": {
-    "build": "vite-elysia-forge build",
+    "build:server": "vite-elysia-forge build --outDir dist",
     "start": "bun dist/server.js"
   }
 }
 ```
 
-### 7.2 Compiled Binary (`build-compile`)
-
-Builds everything and compiles the server into a **standalone executable** (no Bun runtime required on the target machine).
+**With custom entry and target:**
 
 ```bash
-vite-elysia-forge build-compile
+vite-elysia-forge build --entry src/my-api.ts --outDir .output --target node
+```
+
+### 7.3 Compiled Binary (`--outFile`)
+
+Build and compile the server into a **standalone executable** (no Bun runtime required).
+
+```bash
+vite-elysia-forge build --outFile server
 ```
 
 **What it does:**
 
-1. Performs the standard build
-2. Compiles `dist/server.js` into a native binary at `dist/server`
+1. Bundles the server code
+2. Compiles into a native binary at the specified path
 
 **package.json:**
 
 ```json
 {
   "scripts": {
-    "build": "vite-elysia-forge build-compile",
+    "build:server": "vite-elysia-forge build --outFile dist/server",
     "start": "./dist/server"
   }
 }
 ```
 
-### 7.3 Separate Outputs (`--static` / `--server`)
+### 7.4 CLI Reference
 
-Build the frontend and backend to **separate directories** for independent deployment (e.g., static assets to a CDN, server to a VPS).
-
-```bash
-vite-elysia-forge build --static dist --server .output
-```
-
-**Output structure:**
-
-```
-project/
-├── dist/           # Static assets (deploy to CDN)
-│   ├── index.html
-│   └── assets/
-└── .output/        # Server bundle (deploy to server)
-    └── server.js
-```
-
-**Use cases:**
-
-- Deploying static assets to Cloudflare Pages, Netlify, Vercel, etc.
-- Running the Elysia server on a separate VPS or Docker container
-- CI/CD pipelines that deploy frontend and backend independently
-
-**package.json:**
-
-```json
-{
-  "scripts": {
-    "build": "vite-elysia-forge build --static dist --server .output",
-    "start": "bun .output/server.js"
-  }
-}
-```
-
-Override the static assets path at runtime:
+**Command:**
 
 ```bash
-STATIC_DIR=/path/to/static bun .output/server.js
+vite-elysia-forge build [options]
 ```
 
-### 7.4 Frontend Only (`build-static`)
+**Options:**
 
-Build only the frontend, skipping the server bundle.
+| Option              | Short | Default         | Description                                |
+| :------------------ | :---: | :-------------- | :----------------------------------------- |
+| `--entry <path>`    | `-e`  | `server/api.ts` | Path to API entry file                     |
+| `--outDir <dir>`    | `-d`  | `dist`          | Output directory for bundled `server.js`   |
+| `--outFile <file>`  | `-o`  | —               | Output path for compiled standalone binary |
+| `--target <target>` | `-t`  | `bun`           | Build target: `bun`, `node`, or `browser`  |
+| `--no-minify`       |   —   | —               | Disable minification                       |
+
+> **Note:** `--outDir` and `--outFile` are mutually exclusive. Use `--outDir` for a bundled JS file, or `--outFile` for a compiled binary.
+
+**Examples:**
 
 ```bash
-vite-elysia-forge build-static
+# Bundle server to dist/server.js
+vite-elysia-forge build --outDir dist
+
+# Bundle with node target
+vite-elysia-forge build --outDir dist --target node
+
+# Compile to standalone binary
+vite-elysia-forge build --outFile server
+
+# Compile with custom entry
+vite-elysia-forge build --entry src/api/index.ts --outFile myserver
+
+# Bundle without minification
+vite-elysia-forge build --outDir dist --no-minify
 ```
 
-Useful for rebuilding just the frontend without touching the server.
+### 7.5 Deployment Architecture
 
-### 7.5 Server Only (`build-server`)
+**Separate deployment (recommended):**
 
-Build only the server bundle, skipping the Vite frontend build.
-
-```bash
-vite-elysia-forge build-server --server .output --static dist
+```
+┌─────────────────┐         ┌──────────────────┐
+│  Static Host    │         │   API Server     │
+│  (CDN/Pages)    │◄────────┤   (VPS/Cloud)    │
+│                 │  CORS   │                  │
+│  dist/          │         │  dist/server.js  │
+└─────────────────┘         └──────────────────┘
 ```
 
-Useful when the frontend is already built or deployed separately.
+- Frontend: Build with `vite build` and deploy to Cloudflare Pages, Netlify, Vercel, etc.
+- Backend: Build with `vite-elysia-forge build --outDir dist` and deploy to any server with Bun installed, or use the compiled binary
 
-### 7.6 CLI Reference
+**API-only deployment:**
 
-| Option           | Short | Default             | Description                                 |
-| :--------------- | :---: | :------------------ | :------------------------------------------ |
-| `--api <path>`   | `-a`  | `src/server/api.ts` | Path to API entry file                      |
-| `--static <dir>` | `-s`  | `dist`              | Output directory for static frontend assets |
-| `--server <dir>` | `-o`  | Same as `--static`  | Output directory for server bundle          |
-| `--skip-vite`    |       | `false`             | Skip the Vite frontend build                |
-| `--skip-server`  |       | `false`             | Skip the server build                       |
-
-**Example with custom API path:**
+If you have no frontend, just build and deploy the server:
 
 ```bash
-vite-elysia-forge build --api src/my-api.ts
+vite-elysia-forge build --outDir dist
+bun dist/server.js
 ```
 
 ## 8. Troubleshooting
@@ -349,7 +354,7 @@ If you see `Current adapter doesn't support WebSocket`, you need to enable WS mo
 
 ```ts
 elysiaPlugin({
-  serverFile: "./src/server/api.ts",
+  serverFile: "./server/api.ts",
   ws: true,
 });
 ```
