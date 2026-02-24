@@ -170,7 +170,7 @@ import { openapi, fromTypes } from "@elysiajs/openapi";
 const app = new Elysia().use(
   openapi({
     references: fromTypes("server/api"),
-  })
+  }),
 );
 ```
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 import { spawnSync } from "node:child_process";
-import { existsSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from "node:fs";
-import { resolve, relative, sep, dirname } from "node:path";
+import { existsSync, writeFileSync, unlinkSync, mkdirSync, rmSync, cpSync } from "node:fs";
+import { resolve, relative, sep, dirname, join } from "node:path";
 
 /**
  * Bun build target options.
  */
-export type BuildTarget = "bun" | "node" | "browser";
+export type BuildTarget = "bun";
 
 /**
  * Build options for the server bundle.
@@ -37,12 +37,34 @@ export interface BuildOptions {
    * @default true
    */
   minify?: boolean;
+  /**
+   * Produce a combined full-stack build: run `vite build`, bundle the API,
+   * copy static assets, and emit a single Bun server that serves both.
+   * @default false
+   */
+  static?: boolean;
+  /**
+   * The directory Vite writes its frontend output to.
+   * Used when `static` is true.
+   * @default "dist"
+   */
+  viteDist?: string;
+  /**
+   * URL prefix used to route requests to the Elysia API handler.
+   * Used when `static` is true.
+   * @default "/api"
+   */
+  apiPrefix?: string;
 }
 
 export async function build(options: BuildOptions = {}): Promise<void> {
   const entry = options.entry || "server/api.ts";
   const target = options.target || "bun";
   const minify = options.minify !== false;
+
+  if (options.static) {
+    return buildFull(options);
+  }
 
   const absoluteEntry = resolve(process.cwd(), entry);
 
@@ -97,6 +119,128 @@ console.log(\`Production server running at http://\${app?.server?.hostname}:\${a
     if (existsSync(tempDir)) {
       rmSync(tempDir, { recursive: true, force: true });
     }
+  }
+}
+
+/**
+ * Full-stack build: vite build → bundle API → copy static assets → emit combined server.
+ */
+export async function buildFull(options: BuildOptions = {}): Promise<void> {
+  const entry = options.entry || "server/api.ts";
+  const target = options.target || "bun";
+  const minify = options.minify !== false;
+  const viteDist = options.viteDist || "dist";
+  const outDir = options.outDir || "build";
+  const apiPrefix = options.apiPrefix || "/api";
+
+  const absoluteEntry = resolve(process.cwd(), entry);
+
+  if (!existsSync(absoluteEntry)) {
+    console.error(`❌ API entry file "${entry}" not found.`);
+    console.error(`   By default, vite-elysia-forge looks for "server/api.ts".`);
+    console.error(`   If your API is located elsewhere, please specify the path:`);
+    console.error(`   $ vite-elysia-forge build --static --entry <path-to-your-api-file>`);
+    process.exit(1);
+  }
+
+  // 1. Run vite build
+  console.log(`🏗️  Building frontend with Vite...`);
+  const viteBuild = spawnSync("bun", ["run", "vite", "build"], {
+    stdio: "inherit",
+    cwd: process.cwd(),
+    env: { ...process.env, NODE_ENV: "production" },
+  });
+  if (viteBuild.status !== 0) {
+    console.error("❌ Vite build failed");
+    process.exit(viteBuild.status || 1);
+  }
+
+  // 2. Create combined server entry
+  const tempDir = resolve(process.cwd(), ".vef-temp");
+  if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
+  const tempEntry = resolve(tempDir, ".temp-full.ts");
+
+  let relativeEntry = relative(tempDir, absoluteEntry);
+  relativeEntry = relativeEntry.split(sep).join("/");
+  if (!relativeEntry.startsWith(".")) relativeEntry = "./" + relativeEntry;
+
+  const tempContent = `
+import { api } from ${JSON.stringify(relativeEntry)};
+import { join, dirname } from "path";
+
+const __dir = dirname(Bun.main);
+const staticDir = join(__dir, "public");
+const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
+const server = Bun.serve({
+  port,
+  async fetch(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+
+    // Route API requests to Elysia
+    if (url.pathname.startsWith(${JSON.stringify(apiPrefix)})) {
+      return api.handle(req);
+    }
+
+    // Serve static files
+    const filePath = join(staticDir, url.pathname);
+    const file = Bun.file(filePath);
+    if (await file.exists()) {
+      return new Response(file);
+    }
+
+    // SPA fallback
+    return new Response(Bun.file(join(staticDir, "index.html")));
+  },
+});
+
+console.log(\`Production server running at http://localhost:\${port}\`);
+`;
+
+  writeFileSync(tempEntry, tempContent);
+
+  const absOutDir = resolve(process.cwd(), outDir);
+  if (!existsSync(absOutDir)) mkdirSync(absOutDir, { recursive: true });
+
+  try {
+    // 3. Bundle the combined server
+    console.log(`📦 Bundling full-stack server to "${outDir}/server.js" (target: ${target})...`);
+    const result = await Bun.build({
+      entrypoints: [tempEntry],
+      outdir: absOutDir,
+      target,
+      minify,
+      naming: "server.js",
+    });
+
+    if (!result.success) {
+      console.error("❌ Server build failed");
+      for (const log of result.logs) {
+        console.error(log);
+      }
+      process.exit(1);
+    }
+
+    // 4. Copy static assets to {outDir}/public
+    const absoluteViteDist = resolve(process.cwd(), viteDist);
+    const publicDir = join(absOutDir, "public");
+    if (!existsSync(absoluteViteDist)) {
+      console.error(`❌ Vite dist directory "${viteDist}" not found after build.`);
+      process.exit(1);
+    }
+    cpSync(absoluteViteDist, publicDir, { recursive: true });
+
+    console.log(`✅ Full-stack build complete:`);
+    console.log(`   ${outDir}/server.js  — Bun server (API + static)`);
+    console.log(`   ${outDir}/public/    — Frontend static assets`);
+    console.log(`\n💡 To run: bun ${outDir}/server.js`);
+  } catch (e) {
+    console.error("❌ Failed to build. Ensure you are running this command with Bun.");
+    console.error(e);
+    process.exit(1);
+  } finally {
+    if (existsSync(tempEntry)) unlinkSync(tempEntry);
+    if (existsSync(tempDir)) rmSync(tempDir, { recursive: true, force: true });
   }
 }
 
@@ -228,6 +372,22 @@ function parseArgs(args: string[]): BuildOptions {
       case "--no-minify":
         opts.minify = false;
         break;
+      case "--static":
+      case "-s":
+        opts.static = true;
+        break;
+      case "--dist":
+        if (nextArg && !nextArg.startsWith("-")) {
+          opts.viteDist = nextArg;
+          i++;
+        }
+        break;
+      case "--api-prefix":
+        if (nextArg && !nextArg.startsWith("-")) {
+          opts.apiPrefix = nextArg;
+          i++;
+        }
+        break;
     }
   }
 
@@ -247,6 +407,10 @@ if (import.meta.main) {
       console.error("❌ Cannot use both --outDir and --outFile. Choose one.");
       process.exit(1);
     }
+    if (opts.static && opts.outFile) {
+      console.error("❌ Cannot use --static with --outFile. Use --outDir instead.");
+      process.exit(1);
+    }
 
     build(opts);
   } else {
@@ -255,11 +419,18 @@ if (import.meta.main) {
     console.log("Build the Elysia server for production.");
     console.log("");
     console.log("Options:");
-    console.log("  --entry, -e <path>    Path to API entry file (default: server/api.ts)");
-    console.log("  --outDir, -d <dir>    Output directory for bundled server.js");
-    console.log("  --outFile, -o <file>  Output path for compiled standalone binary");
-    console.log("  --target, -t <target> Build target: bun, node, browser (default: bun)");
-    console.log("  --no-minify           Disable minification");
+    console.log("  --entry, -e <path>     Path to API entry file (default: server/api.ts)");
+    console.log("  --outDir, -d <dir>     Output directory for bundled server.js");
+    console.log("  --outFile, -o <file>   Output path for compiled standalone binary");
+    console.log("  --target, -t <target>  Build target: bun, node, browser (default: bun)");
+    console.log("  --no-minify            Disable minification");
+    console.log("  --static, -s           Full-stack build: run vite build, bundle API, and");
+    console.log("                         emit a single Bun server that serves both API and");
+    console.log("                         static assets from {outDir}/public (default: build/)");
+    console.log("  --dist <dir>           Vite output directory to copy as static assets");
+    console.log("                         (default: dist)");
+    console.log("  --api-prefix <prefix>  URL prefix routed to the Elysia handler");
+    console.log("                         (default: /api)");
     console.log("");
     console.log("Examples:");
     console.log("  # Bundle server to build/server.js");
@@ -270,6 +441,12 @@ if (import.meta.main) {
     console.log("");
     console.log("  # Compile to standalone binary");
     console.log("  vite-elysia-forge build --outFile server");
+    console.log("");
+    console.log("  # Full-stack build (API + static) → deploy the build/ folder");
+    console.log("  vite-elysia-forge build --static");
+    console.log("");
+    console.log("  # Full-stack build with custom dirs");
+    console.log("  vite-elysia-forge build --static --dist frontend/dist --outDir production");
     console.log("");
     console.log("  # Compile with custom entry");
     console.log("  vite-elysia-forge build --entry src/api/index.ts --outFile myserver");
